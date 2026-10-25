@@ -6,6 +6,10 @@ bin/
 *.class
 *.jar
 !gradle/wrapper/gradle-wrapper.jar
+hs_err_*.log
+replay_*.log
+*.hprof
+*.jfr
 
 # Local Minecraft/Fabric runtime
 run/
@@ -20,6 +24,7 @@ crash-reports/
 .project
 .settings/
 .vscode/
+*.launch
 *.swp
 *.swo
 *~

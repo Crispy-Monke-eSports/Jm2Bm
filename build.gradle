@@ -1,5 +1,5 @@
 plugins {
-    id "net.fabricmc.fabric-loom" version "1.16-SNAPSHOT"
+    id "net.fabricmc.fabric-loom" version "${loom_version}"
     id "maven-publish"
 }
 
@@ -9,6 +9,9 @@ group = project.maven_group
 base {
     archivesName = project.archives_base_name
 }
+
+def archiveBaseName = project.archives_base_name
+def resourceProperties = ["version": project.version]
 
 repositories {
     mavenCentral()
@@ -32,15 +35,20 @@ dependencies {
 }
 
 processResources {
-    inputs.property "version", project.version
+    inputs.properties resourceProperties
     filesMatching("fabric.mod.json") {
-        expand "version": project.version
+        expand resourceProperties
     }
 }
 
 tasks.withType(JavaCompile).configureEach {
     it.options.release = 25
     it.options.encoding = "UTF-8"
+}
+
+tasks.withType(AbstractArchiveTask).configureEach {
+    reproducibleFileOrder = true
+    preserveFileTimestamps = false
 }
 
 java {
@@ -56,7 +64,7 @@ test {
 
 jar {
     from("LICENSE") {
-        rename { "${it}_${project.base.archivesName.get()}" }
+        rename { "${it}_${archiveBaseName}" }
     }
 }
 
