@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "id": "jm2bm",
+  "version": "${version}",
+  "name": "Jm2Bm",
+  "description": "Synchronizes JourneyMap global waypoints to existing BlueMap marker sets.",
+  "authors": ["Jm2Bm contributors"],
+  "contact": {
+    "homepage": "https://github.com/Crispy-Monke-eSports/Jm2Bm",
+    "sources": "https://github.com/Crispy-Monke-eSports/Jm2Bm",
+    "issues": "https://github.com/Crispy-Monke-eSports/Jm2Bm/issues"
+  },
+  "license": "MIT",
+  "environment": "server",
+  "entrypoints": {
+    "main": ["se.jesper.jm2bm.Jm2BmMod"],
+    "journeymap_server": ["se.jesper.jm2bm.journeymap.JourneyMapServerPlugin"]
+  },
+  "depends": {
+    "fabricloader": ">=0.19.5",
+    "fabric-api": "*",
+    "minecraft": "~26.3",
+    "java": ">=25",
+    "journeymap": ">=26.3-6.0.10",
+    "bluemap": ">=5.0.0"
+  }
+}

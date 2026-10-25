@@ -1,0 +1,37 @@
+name: Bug report
+description: Report a reproducible Jm2Bm problem
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for helping improve Jm2Bm. Remove private server data from logs before attaching them.
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: Jm2Bm, Minecraft, Fabric Loader/API, JourneyMap, BlueMap, and Java versions.
+      placeholder: Jm2Bm 1.0.0, Minecraft 26.3, ...
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Include the expected behavior and exact steps needed to reproduce the issue.
+    validations:
+      required: true
+  - type: textarea
+    id: config
+    attributes:
+      label: Configuration
+      description: Paste a minimal config with any sensitive values removed.
+      render: json
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: Include the complete Jm2Bm error and surrounding server log lines.
+      render: text
+    validations:
+      required: true

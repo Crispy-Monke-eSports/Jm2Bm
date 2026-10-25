@@ -1,0 +1,38 @@
+# Gradle and build output
+.gradle/
+build/
+out/
+bin/
+*.class
+*.jar
+!gradle/wrapper/gradle-wrapper.jar
+
+# Local Minecraft/Fabric runtime
+run/
+logs/
+crash-reports/
+*.log
+
+# IDEs and editors
+.idea/
+*.iml
+.classpath
+.project
+.settings/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Local secrets and signing material
+.env
+.env.*
+!.env.example
+*.jks
+*.keystore
+*.p12
+
+# Operating systems
+.DS_Store
+Thumbs.db
+desktop.ini

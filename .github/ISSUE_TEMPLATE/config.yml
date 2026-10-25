@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: JourneyMap support
+    url: https://teamjm.github.io/journeymap-docs/
+    about: Use JourneyMap's support resources for issues not caused by Jm2Bm.
+  - name: BlueMap support
+    url: https://bluemap.bluecolored.de/wiki/
+    about: Use BlueMap's documentation for map and marker-set configuration help.
