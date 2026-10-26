@@ -124,6 +124,17 @@ class ConfigManagerTest {
     }
 
     @Test
+    void rejectsIconSymbolicLinksOutsideTheIconDirectory() throws Exception {
+        ConfigManager manager = manager();
+        manager.initialize();
+        Path outside = Files.createTempFile(directory.getParent(), "outside-", ".svg");
+        Files.writeString(outside, "<svg>outside</svg>");
+        Files.createSymbolicLink(directory.resolve("icons/linked.svg"), outside);
+
+        assertThrows(ConfigException.class, () -> manager.resolveIcon("linked.svg"));
+    }
+
+    @Test
     void rejectsWrongYamlFieldTypes() throws Exception {
         ConfigManager manager = manager();
         manager.initialize();

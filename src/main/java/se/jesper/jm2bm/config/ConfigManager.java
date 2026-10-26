@@ -133,7 +133,22 @@ public final class ConfigManager {
         if (!resolved.startsWith(iconDirectory)) {
             throw new ConfigException("Icon path escapes the icons directory: " + icon);
         }
+        rejectSymbolicLinks(resolved, icon);
         return resolved;
+    }
+
+    private void rejectSymbolicLinks(Path resolved, String icon) throws ConfigException {
+        Path current = iconDirectory;
+        if (Files.isSymbolicLink(current)) {
+            throw new ConfigException("Icon path contains a symbolic link: " + icon);
+        }
+        Path relative = iconDirectory.relativize(resolved);
+        for (Path part : relative) {
+            current = current.resolve(part);
+            if (Files.isSymbolicLink(current)) {
+                throw new ConfigException("Icon path contains a symbolic link: " + icon);
+            }
+        }
     }
 
     private BridgeConfig readAndValidate() throws ConfigException {
