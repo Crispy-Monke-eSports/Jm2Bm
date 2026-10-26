@@ -114,7 +114,7 @@ public final class SyncCoordinator {
 
         IconCatalog icons = IconCatalog.load(config, configManager, logger);
         try {
-            blueMap.publishIcons(icons, config);
+            blueMap.publishIcons(expectedServer, icons, config);
         } catch (IOException | RuntimeException e) {
             status = SyncStatus.failed("Icon publication failed: " + e.getMessage()
                     + "; no BlueMap markers were changed");

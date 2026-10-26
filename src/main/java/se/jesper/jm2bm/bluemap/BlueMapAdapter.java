@@ -225,23 +225,32 @@ public final class BlueMapAdapter {
         return urls;
     }
 
-    public void publishIcons(IconCatalog catalog, BridgeConfig config) throws IOException {
+    public void publishIcons(MinecraftServer server, IconCatalog catalog, BridgeConfig config) throws IOException {
         BlueMapAPI current = api;
         if (current == null) throw new IOException("BlueMap API is not connected");
-        Set<IconCatalog.IconAsset> assets = new HashSet<>();
-        for (BridgeConfig.Mapping mapping : config.mappings()) {
-            IconCatalog.IconAsset asset = catalog.forMapping(
-                    mapping.journeyMapGroupUuid(), mapping.blueMapMarkerSet());
-            if (asset != null) assets.add(asset);
-        }
-        for (BlueMapMap map : current.getMaps()) {
-            for (IconCatalog.IconAsset asset : assets) {
+        for (MapContext context : findMaps(server, current)) {
+            BlueMapMap map = context.map();
+            Map<String, IconCatalog.IconAsset> assets = assetsForMarkerSets(
+                    catalog, config, map.getMarkerSets().keySet());
+            for (IconCatalog.IconAsset asset : assets.values()) {
                 if (map.getAssetStorage().assetExists(asset.assetName())) continue;
                 try (OutputStream output = map.getAssetStorage().writeAsset(asset.assetName())) {
                     output.write(asset.bytes());
                 }
             }
         }
+    }
+
+    static Map<String, IconCatalog.IconAsset> assetsForMarkerSets(
+            IconCatalog catalog, BridgeConfig config, Set<String> availableMarkerSets) {
+        Map<String, IconCatalog.IconAsset> assets = new HashMap<>();
+        for (BridgeConfig.Mapping mapping : config.mappings()) {
+            if (!availableMarkerSets.contains(mapping.blueMapMarkerSet())) continue;
+            IconCatalog.IconAsset asset = catalog.forMapping(
+                    mapping.journeyMapGroupUuid(), mapping.blueMapMarkerSet());
+            if (asset != null) assets.putIfAbsent(asset.assetName(), asset);
+        }
+        return Map.copyOf(assets);
     }
 
     private record MapContext(BlueMapMap map, String dimension) {

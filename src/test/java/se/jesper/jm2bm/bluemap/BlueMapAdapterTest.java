@@ -9,9 +9,11 @@ import se.jesper.jm2bm.config.ConfigManager;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -57,5 +59,23 @@ class BlueMapAdapterTest {
         IconCatalog catalog = IconCatalog.load(config, manager, LoggerFactory.getLogger("test"));
 
         assertNull(catalog.forMapping(group, "towns"));
+    }
+
+    @Test
+    void onlyPublishesIconsForMarkerSetsAvailableOnTheMap() throws Exception {
+        UUID group = UUID.fromString("550e8400-e29b-41d4-a716-446655440000");
+        ConfigManager manager = new ConfigManager(LoggerFactory.getLogger("test"), directory);
+        manager.initialize();
+        Files.writeString(manager.iconDirectory().resolve("town.svg"), "<svg>town</svg>");
+        Files.writeString(manager.iconDirectory().resolve("shop.svg"), "<svg>shop</svg>");
+        BridgeConfig config = new BridgeConfig(true, "default.svg", List.of(
+                new BridgeConfig.Mapping(group, "towns", "town.svg"),
+                new BridgeConfig.Mapping(group, "shops", "shop.svg")));
+        IconCatalog catalog = IconCatalog.load(config, manager, LoggerFactory.getLogger("test"));
+
+        Map<String, IconCatalog.IconAsset> assets = BlueMapAdapter.assetsForMarkerSets(
+                catalog, config, Set.of("towns"));
+
+        assertEquals(Set.of(catalog.forMapping(group, "towns").assetName()), assets.keySet());
     }
 }
