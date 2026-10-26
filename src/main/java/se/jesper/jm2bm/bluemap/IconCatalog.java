@@ -32,7 +32,9 @@ public final class IconCatalog {
                         "group " + mapping.journeyMapGroupUuid());
             }
             if (asset == null) asset = defaultAsset;
-            result.put(new MappingKey(mapping.journeyMapGroupUuid(), mapping.blueMapMarkerSet()), asset);
+            if (asset != null) {
+                result.put(new MappingKey(mapping.journeyMapGroupUuid(), mapping.blueMapMarkerSet()), asset);
+            }
         }
         return new IconCatalog(result);
     }
