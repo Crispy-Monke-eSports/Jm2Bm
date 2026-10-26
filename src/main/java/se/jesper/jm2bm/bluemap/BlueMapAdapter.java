@@ -161,7 +161,9 @@ public final class BlueMapAdapter {
     ) throws SyncPlanner.PlanningException {
         Map<java.util.UUID, String> iconAssets = new HashMap<>();
         for (BridgeConfig.Mapping mapping : config.mappings()) {
-            IconCatalog.IconAsset icon = icons.forGroup(mapping.journeyMapGroupUuid());
+            if (!mapping.blueMapMarkerSet().equals(setId)) continue;
+            IconCatalog.IconAsset icon = icons.forMapping(
+                    mapping.journeyMapGroupUuid(), mapping.blueMapMarkerSet());
             if (icon != null) iconAssets.put(mapping.journeyMapGroupUuid(), icon.assetName());
         }
         return SyncPlanner.plan(config, snapshot, iconAssets, dimension, setId);
@@ -228,7 +230,8 @@ public final class BlueMapAdapter {
         if (current == null) throw new IOException("BlueMap API is not connected");
         Set<IconCatalog.IconAsset> assets = new HashSet<>();
         for (BridgeConfig.Mapping mapping : config.mappings()) {
-            IconCatalog.IconAsset asset = catalog.forGroup(mapping.journeyMapGroupUuid());
+            IconCatalog.IconAsset asset = catalog.forMapping(
+                    mapping.journeyMapGroupUuid(), mapping.blueMapMarkerSet());
             if (asset != null) assets.add(asset);
         }
         for (BlueMapMap map : current.getMaps()) {

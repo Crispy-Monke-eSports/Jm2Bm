@@ -16,15 +16,15 @@ import java.util.Map;
 import java.util.UUID;
 
 public final class IconCatalog {
-    private final Map<UUID, IconAsset> byGroup;
+    private final Map<MappingKey, IconAsset> byMapping;
 
-    private IconCatalog(Map<UUID, IconAsset> byGroup) {
-        this.byGroup = Map.copyOf(byGroup);
+    private IconCatalog(Map<MappingKey, IconAsset> byMapping) {
+        this.byMapping = Map.copyOf(byMapping);
     }
 
     public static IconCatalog load(BridgeConfig config, ConfigManager configManager, Logger logger) {
         IconAsset defaultAsset = loadOne(config.defaultIcon(), configManager, logger, "defaultIcon");
-        Map<UUID, IconAsset> result = new HashMap<>();
+        Map<MappingKey, IconAsset> result = new HashMap<>();
         for (BridgeConfig.Mapping mapping : config.mappings()) {
             IconAsset asset = null;
             if (mapping.icon() != null) {
@@ -32,13 +32,13 @@ public final class IconCatalog {
                         "group " + mapping.journeyMapGroupUuid());
             }
             if (asset == null) asset = defaultAsset;
-            result.put(mapping.journeyMapGroupUuid(), asset);
+            result.put(new MappingKey(mapping.journeyMapGroupUuid(), mapping.blueMapMarkerSet()), asset);
         }
         return new IconCatalog(result);
     }
 
-    public IconAsset forGroup(UUID groupId) {
-        return byGroup.get(groupId);
+    public IconAsset forMapping(UUID groupId, String markerSetId) {
+        return byMapping.get(new MappingKey(groupId, markerSetId));
     }
 
     private static IconAsset loadOne(String name, ConfigManager configManager, Logger logger, String owner) {
@@ -67,5 +67,8 @@ public final class IconCatalog {
         public byte[] bytes() {
             return bytes.clone();
         }
+    }
+
+    private record MappingKey(UUID groupId, String markerSetId) {
     }
 }
