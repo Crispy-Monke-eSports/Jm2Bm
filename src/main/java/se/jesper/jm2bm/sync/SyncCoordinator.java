@@ -115,15 +115,25 @@ public final class SyncCoordinator {
         IconCatalog icons = IconCatalog.load(config, configManager, logger);
         try {
             blueMap.publishIcons(icons, config);
-        } catch (IOException e) {
+        } catch (IOException | RuntimeException e) {
             status = SyncStatus.failed("Icon publication failed: " + e.getMessage()
                     + "; no BlueMap markers were changed");
             logger.error("[Jm2Bm] Aborted sync before marker mutation because icon publication failed", e);
+            deferIfBlueMapDisconnected();
             return;
         }
 
         Set<String> cleanup = Set.copyOf(pendingCleanupSets);
-        BlueMapAdapter.ReconcileResult result = blueMap.reconcile(expectedServer, config, snapshot, icons, cleanup);
+        final BlueMapAdapter.ReconcileResult result;
+        try {
+            result = blueMap.reconcile(expectedServer, config, snapshot, icons, cleanup);
+        } catch (RuntimeException e) {
+            status = SyncStatus.failed("BlueMap reconciliation failed unexpectedly: " + e.getMessage()
+                    + "; pending cleanup was retained");
+            logger.error("[Jm2Bm] BlueMap reconciliation failed unexpectedly; pending cleanup was retained", e);
+            deferIfBlueMapDisconnected();
+            return;
+        }
         status = new SyncStatus(Instant.now(), result.success(), result.message(), result.created(), result.updated(),
                 result.removed(), result.managedSets(), result.managedMaps(), result.markerCounts(),
                 result.missingMarkerSets(), result.missingGroups());
@@ -136,5 +146,9 @@ public final class SyncCoordinator {
             logger.error("[Jm2Bm] Sync completed with errors: created={} updated={} removed={} - {}",
                     result.created(), result.updated(), result.removed(), result.message());
         }
+    }
+
+    private void deferIfBlueMapDisconnected() {
+        if (!blueMap.isConnected()) dependencyDeferred.set(true);
     }
 }

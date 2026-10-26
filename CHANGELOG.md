@@ -18,6 +18,12 @@ All notable changes to Jm2Bm will be documented here. The project follows
 
 - JourneyMap built-in groups with textual IDs no longer abort synchronization or TAB completion.
 - Dependency-ready startup events no longer queue the same synchronization twice.
+- Fabric now loads the nested `flow-math` and SnakeYAML libraries without relying on other mods.
+- Missing, null, misspelled, and unknown YAML fields are rejected before they can clear mappings.
+- Stale mappings remain removable by stored UUID and marker-set ID when live objects are gone.
+- Incomplete one-time cleanup remains pending until every destination is available and successful.
+- Icons are scoped per group-to-marker-set mapping instead of overwriting each other by group UUID.
+- Unexpected BlueMap runtime failures update sync status and preserve pending cleanup for retry.
 
 ## 1.0.0 - 2026-10-26
 
