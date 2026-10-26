@@ -117,21 +117,22 @@ public final class BridgeCommands {
     }
 
     static JourneyMapAdapter.GroupRef resolveGroup(List<JourneyMapAdapter.GroupRef> groups, String input) {
+        if (input.startsWith("name:")) return resolveGroupName(groups, input.substring("name:".length()), false);
+        if (input.startsWith("uuid:")) {
+            UUID id = parseUuidArgument(input.substring("uuid:".length()), "JourneyMap group UUID");
+            return groups.stream().filter(group -> group.id().equals(id)).findFirst()
+                    .orElseThrow(() -> new IllegalArgumentException("No JourneyMap global group has UUID " + id));
+        }
+        List<JourneyMapAdapter.GroupRef> nameMatches = groupNameMatches(groups, input);
+        if (!nameMatches.isEmpty()) return requireUniqueGroupName(nameMatches, input);
         try {
             UUID id = UUID.fromString(input);
             return groups.stream().filter(group -> group.id().equals(id)).findFirst()
                     .orElseThrow(() -> new IllegalArgumentException("No JourneyMap global group has UUID " + id));
-        } catch (IllegalArgumentException ignored) {
-            // Friendly names are the normal command input; UUID is only an explicit fallback.
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException(
+                    "No JourneyMap global group is named '" + input + "'. Use TAB to choose one.");
         }
-        List<JourneyMapAdapter.GroupRef> matches = groups.stream()
-                .filter(group -> group.name().equalsIgnoreCase(input)).toList();
-        if (matches.isEmpty()) throw new IllegalArgumentException(
-                "No JourneyMap global group is named '" + input + "'. Use TAB to choose one.");
-        Set<UUID> ids = new LinkedHashSet<>(matches.stream().map(JourneyMapAdapter.GroupRef::id).toList());
-        if (ids.size() > 1) throw new IllegalArgumentException(
-                "Several JourneyMap global groups are named '" + input + "'; use its UUID instead.");
-        return matches.getFirst();
     }
 
     static BlueMapAdapter.MarkerSetRef resolveMarkerSet(List<BlueMapAdapter.MarkerSetRef> sets, String input) {
@@ -157,22 +158,59 @@ public final class BridgeCommands {
             List<JourneyMapAdapter.GroupRef> groups, String input) {
         Set<UUID> linked = config.mappings().stream().map(BridgeConfig.Mapping::journeyMapGroupUuid)
                 .collect(java.util.stream.Collectors.toSet());
-        try {
-            UUID id = UUID.fromString(input);
-            if (!linked.contains(id)) throw new IllegalArgumentException("JourneyMap group " + id + " is not linked.");
-            return groups.stream().filter(group -> group.id().equals(id)).findFirst()
-                    .orElse(new JourneyMapAdapter.GroupRef(id, id.toString()));
-        } catch (IllegalArgumentException e) {
-            if (input.matches("[0-9a-fA-F-]{36}")) throw e;
+        if (input.startsWith("name:")) {
+            return resolveGroupName(groups.stream().filter(group -> linked.contains(group.id())).toList(),
+                    input.substring("name:".length()), true);
         }
-        List<JourneyMapAdapter.GroupRef> matches = groups.stream()
-                .filter(group -> linked.contains(group.id()) && group.name().equalsIgnoreCase(input)).toList();
+        if (input.startsWith("uuid:")) {
+            return resolveLinkedGroupId(linked, groups,
+                    parseUuidArgument(input.substring("uuid:".length()), "JourneyMap group UUID"));
+        }
+        List<JourneyMapAdapter.GroupRef> nameMatches = groupNameMatches(
+                groups.stream().filter(group -> linked.contains(group.id())).toList(), input);
+        if (!nameMatches.isEmpty()) return requireUniqueGroupName(nameMatches, input);
+        try {
+            return resolveLinkedGroupId(linked, groups, UUID.fromString(input));
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException(
+                    "No linked JourneyMap group is named '" + input + "'. Use TAB or uuid:<stored UUID>.");
+        }
+    }
+
+    private static JourneyMapAdapter.GroupRef resolveLinkedGroupId(Set<UUID> linked,
+            List<JourneyMapAdapter.GroupRef> groups, UUID id) {
+        if (!linked.contains(id)) throw new IllegalArgumentException("JourneyMap group " + id + " is not linked.");
+        return groups.stream().filter(group -> group.id().equals(id)).findFirst()
+                .orElse(new JourneyMapAdapter.GroupRef(id, id.toString()));
+    }
+
+    private static JourneyMapAdapter.GroupRef resolveGroupName(List<JourneyMapAdapter.GroupRef> groups,
+            String name, boolean linkedOnly) {
+        List<JourneyMapAdapter.GroupRef> matches = groupNameMatches(groups, name);
         if (matches.isEmpty()) throw new IllegalArgumentException(
-                "No linked JourneyMap group is named '" + input + "'. Use TAB or its stored UUID.");
+                "No " + (linkedOnly ? "linked " : "") + "JourneyMap global group is named '" + name + "'.");
+        return requireUniqueGroupName(matches, name);
+    }
+
+    private static List<JourneyMapAdapter.GroupRef> groupNameMatches(
+            List<JourneyMapAdapter.GroupRef> groups, String name) {
+        return groups.stream().filter(group -> group.name().equalsIgnoreCase(name)).toList();
+    }
+
+    private static JourneyMapAdapter.GroupRef requireUniqueGroupName(
+            List<JourneyMapAdapter.GroupRef> matches, String name) {
         Set<UUID> ids = new LinkedHashSet<>(matches.stream().map(JourneyMapAdapter.GroupRef::id).toList());
         if (ids.size() > 1) throw new IllegalArgumentException(
-                "Several linked JourneyMap groups are named '" + input + "'; use its UUID instead.");
+                "Several JourneyMap global groups are named '" + name + "'; use uuid:<UUID> instead.");
         return matches.getFirst();
+    }
+
+    private static UUID parseUuidArgument(String value, String field) {
+        try {
+            return UUID.fromString(value);
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException(field + " is invalid: " + value);
+        }
     }
 
     static BlueMapAdapter.MarkerSetRef resolveLinkedMarkerSet(BridgeConfig config, UUID groupId,
@@ -207,7 +245,8 @@ public final class BridgeCommands {
     private static CompletableFuture<Suggestions> suggestGroups(JourneyMapAdapter adapter,
                                                                   SuggestionsBuilder builder) {
         try {
-            return suggest(adapter.groups().stream().map(JourneyMapAdapter.GroupRef::name).toList(), builder);
+            return suggest(adapter.groups().stream().map(JourneyMapAdapter.GroupRef::name)
+                    .map(BridgeCommands::groupNameArgument).toList(), builder);
         } catch (SnapshotException e) {
             return builder.buildFuture();
         }
@@ -225,7 +264,7 @@ public final class BridgeCommands {
     private static CompletableFuture<Suggestions> suggestLinkedGroups(ConfigManager configManager,
             JourneyMapAdapter journeyMap, SuggestionsBuilder builder) {
         try {
-            return suggest(linkedGroupNames(configManager.configured(), availableGroups(journeyMap)), builder);
+            return suggest(linkedGroupArguments(configManager.configured(), availableGroups(journeyMap)), builder);
         } catch (ConfigException e) {
             return builder.buildFuture();
         }
@@ -247,10 +286,14 @@ public final class BridgeCommands {
     static CompletableFuture<Suggestions> suggest(List<String> values, SuggestionsBuilder builder) {
         String remaining = builder.getRemaining().toLowerCase(Locale.ROOT).replaceFirst("^\"", "");
         values.stream().distinct().sorted(String.CASE_INSENSITIVE_ORDER)
-                .filter(value -> value.toLowerCase(Locale.ROOT).startsWith(remaining))
+                .filter(value -> suggestionFriendlyValue(value).toLowerCase(Locale.ROOT).startsWith(remaining))
                 .map(BridgeCommands::quoteArgument)
                 .forEach(builder::suggest);
         return builder.buildFuture();
+    }
+
+    private static String suggestionFriendlyValue(String value) {
+        return value.startsWith("name:") ? value.substring("name:".length()) : value;
     }
 
     static List<String> linkedGroupNames(BridgeConfig config, List<JourneyMapAdapter.GroupRef> groups) {
@@ -258,6 +301,13 @@ public final class BridgeCommands {
                 .collect(java.util.stream.Collectors.toSet());
         return linked.stream().map(id -> groups.stream().filter(group -> group.id().equals(id)).findFirst()
                 .map(JourneyMapAdapter.GroupRef::name).orElse(id.toString())).toList();
+    }
+
+    static List<String> linkedGroupArguments(BridgeConfig config, List<JourneyMapAdapter.GroupRef> groups) {
+        Set<UUID> linked = config.mappings().stream().map(BridgeConfig.Mapping::journeyMapGroupUuid)
+                .collect(java.util.stream.Collectors.toSet());
+        return linked.stream().map(id -> groups.stream().filter(group -> group.id().equals(id)).findFirst()
+                .map(group -> groupNameArgument(group.name())).orElse("uuid:" + id)).toList();
     }
 
     static List<String> linkedMarkerSetNames(BridgeConfig config, UUID groupId,
@@ -289,6 +339,20 @@ public final class BridgeCommands {
     static String quoteArgument(String value) {
         if (value.matches("[A-Za-z0-9_.:+-]+")) return value;
         return "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\"";
+    }
+
+    static String groupNameArgument(String name) {
+        if (name.startsWith("name:") || name.startsWith("uuid:") || isUuid(name)) return "name:" + name;
+        return name;
+    }
+
+    private static boolean isUuid(String value) {
+        try {
+            UUID.fromString(value);
+            return true;
+        } catch (IllegalArgumentException ignored) {
+            return false;
+        }
     }
 
     private static int listLinks(CommandContext<CommandSourceStack> context, ConfigManager configManager,

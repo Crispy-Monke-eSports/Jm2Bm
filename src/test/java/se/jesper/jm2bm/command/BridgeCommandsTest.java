@@ -53,6 +53,22 @@ class BridgeCommandsTest {
     }
 
     @Test
+    void friendlyGroupNameWinsOverCollidingUuid() {
+        JourneyMapAdapter.GroupRef idMatch = new JourneyMapAdapter.GroupRef(LINKED_GROUP, "Actual ID group");
+        JourneyMapAdapter.GroupRef nameMatch = new JourneyMapAdapter.GroupRef(OTHER_GROUP, LINKED_GROUP.toString());
+        List<JourneyMapAdapter.GroupRef> groups = List.of(idMatch, nameMatch);
+        BridgeConfig config = new BridgeConfig(true, "default.svg", List.of(
+                new BridgeConfig.Mapping(LINKED_GROUP, "towns", null),
+                new BridgeConfig.Mapping(OTHER_GROUP, "towns", null)));
+
+        assertEquals(nameMatch, BridgeCommands.resolveGroup(groups, LINKED_GROUP.toString()));
+        assertEquals(idMatch, BridgeCommands.resolveGroup(groups, "uuid:" + LINKED_GROUP));
+        assertEquals(nameMatch, BridgeCommands.resolveLinkedGroup(config, groups, LINKED_GROUP.toString()));
+        assertEquals(idMatch, BridgeCommands.resolveLinkedGroup(config, groups, "uuid:" + LINKED_GROUP));
+        assertEquals("name:" + LINKED_GROUP, BridgeCommands.groupNameArgument(LINKED_GROUP.toString()));
+    }
+
+    @Test
     void quotesTabSuggestionsContainingSpaces() throws Exception {
         var suggestions = BridgeCommands.suggest(List.of("Global Towns", "Shops"),
                 new SuggestionsBuilder("", 0)).get();
@@ -87,6 +103,7 @@ class BridgeCommandsTest {
         assertEquals("removed-set",
                 BridgeCommands.resolveLinkedMarkerSet(config, LINKED_GROUP, List.of(), "removed-set").id());
         assertEquals(List.of(LINKED_GROUP.toString()), BridgeCommands.linkedGroupNames(config, List.of()));
+        assertEquals(List.of("uuid:" + LINKED_GROUP), BridgeCommands.linkedGroupArguments(config, List.of()));
         assertEquals(List.of("removed-set"),
                 BridgeCommands.linkedMarkerSetNames(config, LINKED_GROUP, List.of()));
     }
