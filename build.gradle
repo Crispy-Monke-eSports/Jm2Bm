@@ -11,6 +11,7 @@ base {
 }
 
 def archiveBaseName = project.archives_base_name
+def snakeYamlJarName = "snakeyaml-${project.snakeyaml_version}.jar"
 def commonBuildDirectory = project(":common").layout.buildDirectory
 def fabricBuildDirectory = project(":fabric").layout.buildDirectory
 def neoForgeBuildDirectory = project(":neoforge").layout.buildDirectory
@@ -41,6 +42,7 @@ tasks.named("jar", Jar) {
     from(fabricBuildDirectory.dir("resources/main")) {
         include("fabric.mod.json")
         include("META-INF/jarjar/flow-math-1.0.3.jar")
+        include("META-INF/jarjar/${snakeYamlJarName}")
     }
     from(neoForgeBuildDirectory.dir("classes/java/main")) {
         include("se/jesper/jm2bm/neoforge/**")
@@ -81,6 +83,7 @@ tasks.register("verifyUniversalJar") {
                 "META-INF/neoforge.mods.toml",
                 "META-INF/jarjar/metadata.json",
                 "META-INF/jarjar/flow-math-1.0.3.jar",
+                "META-INF/jarjar/${snakeYamlJarName}",
                 "se/jesper/jm2bm/fabric/Jm2BmFabric.class",
                 "se/jesper/jm2bm/neoforge/Jm2BmNeoForge.class",
                 "se/jesper/jm2bm/Jm2BmMod.class"

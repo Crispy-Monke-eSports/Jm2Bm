@@ -24,6 +24,29 @@ public final class JourneyMapAdapter {
         return api != null;
     }
 
+    public List<GroupRef> groups() throws SnapshotException {
+        IServerAPI current = api;
+        if (current == null) throw new SnapshotException("JourneyMap API is not connected");
+        try {
+            List<WaypointGroup> groups = current.getAllGlobalGroups();
+            if (groups == null) throw new SnapshotException("JourneyMap returned a null group collection");
+            List<GroupRef> result = new ArrayList<>();
+            Set<UUID> ids = new HashSet<>();
+            for (WaypointGroup group : groups) {
+                if (group == null) throw new SnapshotException("JourneyMap returned an incomplete global group");
+                UUID id = parseUuid(group.getGuid(), "global group GUID");
+                String name = requireText(group.getName(), "global group name");
+                if (!ids.add(id)) throw new SnapshotException("JourneyMap returned duplicate global group " + id);
+                result.add(new GroupRef(id, name));
+            }
+            return List.copyOf(result);
+        } catch (SnapshotException e) {
+            throw e;
+        } catch (Throwable t) {
+            throw new SnapshotException("Could not list JourneyMap groups: " + t.getMessage(), t);
+        }
+    }
+
     public JourneySnapshot snapshot(Set<UUID> requiredGroups) throws SnapshotException {
         IServerAPI current = api;
         if (current == null) throw new SnapshotException("JourneyMap API is not connected");
@@ -108,5 +131,8 @@ public final class JourneyMapAdapter {
     private static String requireText(String value, String field) throws SnapshotException {
         if (value == null || value.isBlank()) throw new SnapshotException("Missing " + field);
         return value;
+    }
+
+    public record GroupRef(UUID id, String name) {
     }
 }

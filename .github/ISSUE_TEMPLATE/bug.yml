@@ -26,7 +26,7 @@ body:
     attributes:
       label: Configuration
       description: Paste a minimal config with any sensitive values removed.
-      render: json
+      render: yaml
   - type: textarea
     id: logs
     attributes:

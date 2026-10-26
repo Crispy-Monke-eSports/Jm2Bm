@@ -74,7 +74,7 @@ public final class Jm2BmMod {
 
     public static void registerCommands(CommandDispatcher<CommandSourceStack> dispatcher) {
         Jm2BmMod mod = requireInstance();
-        BridgeCommands.register(dispatcher, mod.configManager, mod.coordinator);
+        BridgeCommands.register(dispatcher, mod.configManager, mod.coordinator, mod.journeyMap, mod.blueMap);
     }
 
     public static void onServerStarted(MinecraftServer server) {

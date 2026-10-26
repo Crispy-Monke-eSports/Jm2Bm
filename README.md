@@ -21,29 +21,22 @@ Fabric and NeoForge dependencies must not be mixed on one server.
 
 ## Configuration
 
-The first start creates `config/jm2bm/config.json` and
+The first start creates `config/jm2bm/config.yaml` and
 `config/jm2bm/icons/default.svg`. The initial mapping list is deliberately empty so a first
 start can never take ownership of, or clear, an existing BlueMap marker set.
 
 Example:
 
-```json
-{
-  "syncOnStartup": true,
-  "defaultIcon": "default.svg",
-  "mappings": [
-    {
-      "journeyMapGroupUuid": "550e8400-e29b-41d4-a716-446655440000",
-      "blueMapMarkerSet": "towns",
-      "icon": "town.svg"
-    },
-    {
-      "journeyMapGroupUuid": "123e4567-e89b-42d3-a456-426614174000",
-      "blueMapMarkerSet": "towns",
-      "icon": "dungeon.svg"
-    }
-  ]
-}
+```yaml
+syncOnStartup: true
+defaultIcon: default.svg
+mappings:
+  - journeyMapGroupUuid: 550e8400-e29b-41d4-a716-446655440000
+    blueMapMarkerSet: towns
+    icon: town.svg
+  - journeyMapGroupUuid: 123e4567-e89b-42d3-a456-426614174000
+    blueMapMarkerSet: towns
+    icon: dungeon.svg
 ```
 
 Put PNG or SVG icons below `config/jm2bm/icons/`. Icon paths cannot be absolute or leave that
@@ -60,12 +53,20 @@ GUID is used as the BlueMap marker ID.
 
 ## Commands
 
-- `/jm2bm reload` validates and activates `config.json`, republishes changed icons, reconciles all
+- `/jm2bm link <journeymap-global-group> <bluemap-marker-set>` links a group and set by their
+  friendly display names. TAB completion lists all live JourneyMap global groups and BlueMap sets.
+- `/jm2bm unlink <journeymap-global-group> <bluemap-marker-set>` removes a link. TAB completion
+  only lists linked groups, then only sets linked to the selected group.
+- `/jm2bm list` lists every active link using friendly names, with stored identifiers as fallback.
+- `/jm2bm reload` validates and activates `config.yaml`, republishes changed icons, reconciles all
   destinations, and cleans a marker set once when its final mapping was removed.
 - `/jm2bm status` reports API connectivity, mappings, destination counts, missing groups/sets,
   and the latest sync result.
 
-Both commands require the vanilla gamemaster permission (operator level 2 equivalent).
+All commands require the vanilla gamemaster permission (operator level 2 equivalent). `link` and
+`unlink` save immediately; friendly names are resolved live, while `config.yaml` stores the stable
+JourneyMap UUID and BlueMap marker-set ID. Each mutation first validates and uses the current YAML
+file as its source of truth. Names containing spaces are inserted as quoted arguments.
 An invalid reload leaves the last valid in-memory configuration active and does not trigger a
 reconciliation.
 
@@ -88,8 +89,8 @@ startup (when enabled), every BlueMap enable/reload, and `/jm2bm reload`; there 
 
 The universal distributable JAR is written to `build/libs/`. It contains both loader manifests and
 small loader-specific entrypoints around one shared implementation. JourneyMap and BlueMap API
-classes are not bundled. BlueMap's public `flow-math` transitive dependency is nested with metadata
-for both loaders so NeoForge can safely deduplicate it.
+classes are not bundled. The runtime libraries `flow-math` and SnakeYAML are nested with metadata
+for both loaders so NeoForge can safely deduplicate them.
 
 ## Contributing and releases
 

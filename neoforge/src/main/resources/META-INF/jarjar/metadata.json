@@ -11,6 +11,18 @@
       },
       "path": "META-INF/jarjar/flow-math-1.0.3.jar",
       "isObfuscated": false
+    },
+    {
+      "identifier": {
+        "group": "org.yaml",
+        "artifact": "snakeyaml"
+      },
+      "version": {
+        "range": "[2.7,)",
+        "artifactVersion": "2.7"
+      },
+      "path": "META-INF/jarjar/snakeyaml-2.7.jar",
+      "isObfuscated": false
     }
   ]
 }

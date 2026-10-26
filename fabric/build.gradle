@@ -43,9 +43,11 @@ dependencies {
     }
     compileOnly "de.bluecolored:bluemap-api:${project.bluemap_api_version}"
     bundledLibrary "com.flowpowered:flow-math:1.0.3"
+    compileOnly "org.yaml:snakeyaml:${project.snakeyaml_version}"
+    bundledLibrary "org.yaml:snakeyaml:${project.snakeyaml_version}"
 }
 
-def resourceProperties = ["version": project.version]
+def resourceProperties = ["version": project.version, "snakeyaml_version": project.snakeyaml_version]
 
 processResources {
     inputs.properties resourceProperties

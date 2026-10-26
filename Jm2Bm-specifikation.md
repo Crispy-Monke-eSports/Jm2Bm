@@ -5,7 +5,7 @@
 **Målmiljö:** Minecraft Java Edition 26.3 · Fabric eller NeoForge · dedikerad server
 **Modnamn / mod-id:** `Jm2Bm` / `jm2bm`
 
-> **Syfte:** En liten, renodlad servermod i en gemensam Fabric/NeoForge-JAR som håller utvalda BlueMap Marker Sets automatiskt synkroniserade med administratörsskapade, globala JourneyMap-waypoints. JourneyMap är den enda sanningskällan. Gruppkopplingar och BlueMap-ikoner definieras i en enkel JSON-konfiguration.
+> **Syfte:** En liten, renodlad servermod i en gemensam Fabric/NeoForge-JAR som håller utvalda BlueMap Marker Sets automatiskt synkroniserade med administratörsskapade, globala JourneyMap-waypoints. JourneyMap är den enda sanningskällan. Gruppkopplingar och BlueMap-ikoner definieras i en enkel YAML-konfiguration.
 
 ## 1. Beslut som är låsta
 
@@ -31,7 +31,7 @@
 - Egna ikonfiler (`.png` och `.svg`), valda per mappning, oberoende av JourneyMaps egna ikoner.
 - Flera BlueMap-kartor för en och samma Minecraft-dimension.
 - Full avstämning efter omstart/reload och inkrementella avstämningar däremellan.
-- Administratörskommandona `/jm2bm reload` och `/jm2bm status`.
+- Administratörskommandona `/jm2bm link`, `/jm2bm unlink`, `/jm2bm list`, `/jm2bm reload` och `/jm2bm status`.
 - Tydlig loggning och skydd mot destruktiv synk vid fel.
 
 ### Ingår inte i v1
@@ -95,7 +95,7 @@ BlueMap Marker Sets är **per BlueMap-karta**: samma set-ID kan förekomma på f
 │  └─ jm2bm-...jar
 └─ config/
    └─ jm2bm/
-      ├─ config.json
+      ├─ config.yaml
       └─ icons/
          ├─ default.svg
          ├─ town.svg
@@ -103,34 +103,25 @@ BlueMap Marker Sets är **per BlueMap-karta**: samma set-ID kan förekomma på f
          └─ dungeon.svg
 ```
 
-Filnamnen för andra moddar är illustrativa. `config.json` skapas med ett tydligt exempel vid första start om filen saknas. Saknade ikonfiler ska inte krascha servern.
+Filnamnen för andra moddar är illustrativa. `config.yaml` skapas med en säker, tom mapping-lista vid första start om filen saknas. Saknade ikonfiler ska inte krascha servern.
 
 ## 6. Konfigurationsformat
 
-**Fil:** `config/jm2bm/config.json`
+**Fil:** `config/jm2bm/config.yaml`
 
-```json
-{
-  "syncOnStartup": true,
-  "defaultIcon": "default.svg",
-  "mappings": [
-    {
-      "journeyMapGroupUuid": "550e8400-e29b-41d4-a716-446655440000",
-      "blueMapMarkerSet": "towns",
-      "icon": "town.svg"
-    },
-    {
-      "journeyMapGroupUuid": "6ba7b810-9dad-41d1-80b4-00c04fd430c8",
-      "blueMapMarkerSet": "shops",
-      "icon": "shop.png"
-    },
-    {
-      "journeyMapGroupUuid": "123e4567-e89b-42d3-a456-426614174000",
-      "blueMapMarkerSet": "towns",
-      "icon": "dungeon.svg"
-    }
-  ]
-}
+```yaml
+syncOnStartup: true
+defaultIcon: default.svg
+mappings:
+  - journeyMapGroupUuid: 550e8400-e29b-41d4-a716-446655440000
+    blueMapMarkerSet: towns
+    icon: town.svg
+  - journeyMapGroupUuid: 6ba7b810-9dad-41d1-80b4-00c04fd430c8
+    blueMapMarkerSet: shops
+    icon: shop.png
+  - journeyMapGroupUuid: 123e4567-e89b-42d3-a456-426614174000
+    blueMapMarkerSet: towns
+    icon: dungeon.svg
 ```
 
 *UUID-värdena ovan är exempel, inte riktiga JourneyMap-grupper.* Det tredje exemplet visar uttryckligen **flera JourneyMap-grupper till samma BlueMap Marker Set** (`towns`), med olika ikoner.
@@ -250,10 +241,28 @@ reconcileAll():
 
 ## 10. Kommandon och åtkomst
 
+### `/jm2bm link <journeymap-global-group> <bluemap-marker-set>`
+
+- TAB föreslår friendly names för alla live globala JourneyMap-grupper och BlueMap Marker Sets.
+- Namnen löses till gruppens UUID och setets interna ID innan mappningen sparas atomiskt direkt i `config.yaml`.
+- Namn med mellanslag citeras av förslagsmekanismen. Tvetydiga namn avvisas i stället för att gissas.
+- En full avstämning köas direkt efter en lyckad länkning.
+
+### `/jm2bm unlink <journeymap-global-group> <bluemap-marker-set>`
+
+- Första TAB-listan visar endast JourneyMap-grupper med aktiva länkar.
+- Andra TAB-listan visar endast BlueMap-set som är länkade till den valda gruppen.
+- Borttagningen sparas atomiskt direkt i `config.yaml` och en full avstämning köas.
+
+### `/jm2bm list`
+
+- Visar alla aktiva kopplingar med friendly names i formatet `JourneyMap-grupp -> BlueMap-set`.
+- Om ett live-objekt inte kan hittas visas sparat UUID respektive internt set-ID som reserv.
+
 ### `/jm2bm reload`
 
 - Endast administratör/operatör (lämplig Minecraft-behörighetsnivå, t.ex. nivå 2 eller högre).
-- Validerar och laddar om `config.json`.
+- Validerar och laddar om `config.yaml`.
 - Publicerar/uppdaterar ikoner.
 - Kör en full avstämning och hanterar borttagna mappningar enligt avsnitt 8.
 - Ger sammanfattande resultat eller ett tydligt fel utan att överge senast giltiga config.
@@ -287,7 +296,7 @@ Last sync: OK
 | BlueMap är inte aktivt | Ingen mutation; synka när `onEnable` körs. |
 | Angivet Marker Set-ID saknas på en BlueMap-karta | Logga fel; **skapa inget set automatiskt**. Fortsätt med andra kartor/set. |
 | Fel i en destinations uppdatering | Rapportera delvis fel och gör ny avstämning vid nästa trigger; radera inte i andra set baserat på osäker källa. |
-| Ogiltig/trasig JSON eller dublettmappning | Behåll senast giltiga config; ingen destruktiv omladdning. |
+| Ogiltig/trasig YAML eller dublettmappning | Behåll senast giltiga config; ingen destruktiv omladdning. |
 | Saknad ikon | Gruppens ikon → `defaultIcon` → BlueMaps standardikon, med varning. |
 | Två kandidater producerar samma marker-ID i samma destinations-set med olika innehåll | Avvisa/avbryt den destinationens synk och logga konflikt; välj inte godtyckligt en marker. |
 | Annat tillägg skriver i ett förvaltat set | Bryggan har tolkningsföreträde; främmande markers tas bort vid nästa lyckade synk. |

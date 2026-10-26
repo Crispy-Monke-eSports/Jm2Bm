@@ -10,6 +10,9 @@ All notable changes to Jm2Bm will be documented here. The project follows
 - One universal server JAR for both Fabric 26.3 and NeoForge 26.3.
 - Loader-specific lifecycle and command entrypoints around the shared synchronization core.
 - Production server smoke testing for both loaders with JourneyMap 6.0.10 and BlueMap 5.29.
+- Friendly-name `/jm2bm link` and `/jm2bm unlink` commands with context-aware TAB completion,
+  plus `/jm2bm list` for all active links.
+- Immediate, atomic persistence of command changes to UUID-based `config.yaml`.
 
 ## 1.0.0 - 2026-10-26
 

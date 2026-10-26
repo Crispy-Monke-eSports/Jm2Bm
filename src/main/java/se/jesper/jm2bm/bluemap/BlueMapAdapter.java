@@ -47,6 +47,37 @@ public final class BlueMapAdapter {
         return api != null;
     }
 
+    public List<MarkerSetRef> markerSets() throws IOException {
+        BlueMapAPI current = api;
+        if (current == null) throw new IOException("BlueMap API is not connected");
+        Map<String, Set<String>> labelsById = new LinkedHashMap<>();
+        try {
+            for (BlueMapMap map : current.getMaps()) {
+                if (map == null || map.getMarkerSets() == null) {
+                    throw new IOException("BlueMap returned an incomplete map");
+                }
+                for (Map.Entry<String, MarkerSet> entry : map.getMarkerSets().entrySet()) {
+                    String id = requireText(entry.getKey(), "marker-set ID");
+                    if (entry.getValue() == null) throw new IOException("BlueMap returned an incomplete marker set");
+                    String label = requireText(entry.getValue().getLabel(), "marker-set label");
+                    labelsById.computeIfAbsent(id, ignored -> new HashSet<>()).add(label);
+                }
+            }
+        } catch (IOException e) {
+            throw e;
+        } catch (Throwable t) {
+            throw new IOException("Could not list BlueMap marker sets: " + t.getMessage(), t);
+        }
+        List<MarkerSetRef> result = new ArrayList<>();
+        labelsById.forEach((id, labels) -> labels.forEach(label -> result.add(new MarkerSetRef(id, label))));
+        return List.copyOf(result);
+    }
+
+    private static String requireText(String value, String field) throws IOException {
+        if (value == null || value.isBlank()) throw new IOException("Missing " + field);
+        return value;
+    }
+
     public ReconcileResult reconcile(
             MinecraftServer server,
             BridgeConfig config,
@@ -206,6 +237,9 @@ public final class BlueMapAdapter {
     }
 
     private record MapContext(BlueMapMap map, String dimension) {
+    }
+
+    public record MarkerSetRef(String id, String label) {
     }
 
     private static final class Counters {
