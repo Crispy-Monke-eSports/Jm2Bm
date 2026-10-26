@@ -59,4 +59,18 @@ class BridgeCommandsTest {
         assertEquals(List.of("Linked set"),
                 BridgeCommands.linkedMarkerSetNames(config, LINKED_GROUP, sets));
     }
+
+    @Test
+    void staleLinksCanBeResolvedAndSuggestedByStoredIdentifiers() {
+        BridgeConfig config = new BridgeConfig(true, "default.svg", List.of(
+                new BridgeConfig.Mapping(LINKED_GROUP, "removed-set", null)));
+
+        assertEquals(LINKED_GROUP,
+                BridgeCommands.resolveLinkedGroup(config, List.of(), LINKED_GROUP.toString()).id());
+        assertEquals("removed-set",
+                BridgeCommands.resolveLinkedMarkerSet(config, LINKED_GROUP, List.of(), "removed-set").id());
+        assertEquals(List.of(LINKED_GROUP.toString()), BridgeCommands.linkedGroupNames(config, List.of()));
+        assertEquals(List.of("removed-set"),
+                BridgeCommands.linkedMarkerSetNames(config, LINKED_GROUP, List.of()));
+    }
 }
