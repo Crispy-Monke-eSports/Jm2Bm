@@ -10,6 +10,7 @@ import java.util.Set;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -42,6 +43,15 @@ class JourneyMapAdapterTest {
         assertNull(JourneyMapAdapter.parseSelectableGroupUuid("journeymap_global_default"));
         assertThrows(SnapshotException.class, () -> JourneyMapAdapter.parseSelectableGroupUuid("  "));
         assertThrows(SnapshotException.class, () -> JourneyMapAdapter.parseSelectableGroupUuid(null));
+    }
+
+    @Test
+    void disconnectClearsTheCurrentApi() {
+        JourneyMapAdapter adapter = adapter(List.of());
+
+        adapter.disconnect();
+
+        assertFalse(adapter.isConnected());
     }
 
     private static JourneyMapAdapter adapter(List<WaypointGroup> groups) {

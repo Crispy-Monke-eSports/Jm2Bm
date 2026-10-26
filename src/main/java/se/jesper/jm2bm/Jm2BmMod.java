@@ -95,6 +95,9 @@ public final class Jm2BmMod {
         if (mod == null) return;
         mod.unregisterBlueMapListeners();
         JourneyMapServerPlugin.unregisterListeners();
+        JourneyMapServerPlugin.clearPendingApi();
+        mod.blueMap.disconnect();
+        mod.journeyMap.disconnect();
     }
 
     public static void onJourneyMapReady(IServerAPI api) {

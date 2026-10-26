@@ -42,6 +42,10 @@ public final class JourneyMapServerPlugin implements IServerPlugin {
         if (current != null) current.unsubscribeEvents();
     }
 
+    public static void clearPendingApi() {
+        pendingApi = null;
+    }
+
     private synchronized void subscribeEvents() {
         if (!waypointSubscribed) {
             ServerEventRegistry.GLOBAL_WAYPOINT_EVENT.subscribe(

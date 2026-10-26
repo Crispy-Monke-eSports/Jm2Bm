@@ -20,6 +20,10 @@ public final class JourneyMapAdapter {
         this.api = Objects.requireNonNull(api);
     }
 
+    public void disconnect() {
+        this.api = null;
+    }
+
     public boolean isConnected() {
         return api != null;
     }

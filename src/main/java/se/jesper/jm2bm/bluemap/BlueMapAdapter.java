@@ -43,6 +43,10 @@ public final class BlueMapAdapter {
         if (this.api == api) this.api = null;
     }
 
+    public void disconnect() {
+        this.api = null;
+    }
+
     public boolean isConnected() {
         return api != null;
     }
