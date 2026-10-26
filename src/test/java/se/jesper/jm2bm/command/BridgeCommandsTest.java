@@ -36,6 +36,23 @@ class BridgeCommandsTest {
     }
 
     @Test
+    void friendlyMarkerSetNameWinsOverCollidingInternalId() {
+        BlueMapAdapter.MarkerSetRef idMatch = new BlueMapAdapter.MarkerSetRef("towns", "Villages");
+        BlueMapAdapter.MarkerSetRef labelMatch = new BlueMapAdapter.MarkerSetRef("shops", "towns");
+
+        assertEquals(labelMatch, BridgeCommands.resolveMarkerSet(List.of(idMatch, labelMatch), "towns"));
+        assertEquals(idMatch, BridgeCommands.resolveMarkerSet(List.of(idMatch, labelMatch), "id:towns"));
+
+        BridgeConfig config = new BridgeConfig(true, "default.svg", List.of(
+                new BridgeConfig.Mapping(LINKED_GROUP, "towns", null),
+                new BridgeConfig.Mapping(LINKED_GROUP, "shops", null)));
+        assertEquals(labelMatch, BridgeCommands.resolveLinkedMarkerSet(
+                config, LINKED_GROUP, List.of(idMatch, labelMatch), "towns"));
+        assertEquals(idMatch, BridgeCommands.resolveLinkedMarkerSet(
+                config, LINKED_GROUP, List.of(idMatch, labelMatch), "id:towns"));
+    }
+
+    @Test
     void quotesTabSuggestionsContainingSpaces() throws Exception {
         var suggestions = BridgeCommands.suggest(List.of("Global Towns", "Shops"),
                 new SuggestionsBuilder("", 0)).get();

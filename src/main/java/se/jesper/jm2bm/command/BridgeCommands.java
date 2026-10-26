@@ -131,16 +131,22 @@ public final class BridgeCommands {
     }
 
     static BlueMapAdapter.MarkerSetRef resolveMarkerSet(List<BlueMapAdapter.MarkerSetRef> sets, String input) {
-        List<BlueMapAdapter.MarkerSetRef> idMatches = sets.stream().filter(set -> set.id().equals(input)).toList();
-        if (!idMatches.isEmpty()) return idMatches.getFirst();
+        if (input.startsWith("id:")) {
+            String id = input.substring("id:".length());
+            return sets.stream().filter(set -> set.id().equals(id)).findFirst()
+                    .orElseThrow(() -> new IllegalArgumentException("No BlueMap marker set has internal ID " + id));
+        }
         List<BlueMapAdapter.MarkerSetRef> matches = sets.stream()
                 .filter(set -> set.label().equalsIgnoreCase(input)).toList();
-        if (matches.isEmpty()) throw new IllegalArgumentException(
-                "No BlueMap marker set is named '" + input + "'. Use TAB to choose one.");
-        Set<String> ids = new LinkedHashSet<>(matches.stream().map(BlueMapAdapter.MarkerSetRef::id).toList());
-        if (ids.size() > 1) throw new IllegalArgumentException(
-                "Several BlueMap marker sets are named '" + input + "'; use its internal ID instead.");
-        return matches.getFirst();
+        if (!matches.isEmpty()) {
+            Set<String> ids = new LinkedHashSet<>(matches.stream().map(BlueMapAdapter.MarkerSetRef::id).toList());
+            if (ids.size() > 1) throw new IllegalArgumentException(
+                    "Several BlueMap marker sets are named '" + input + "'; use id:<internal ID> instead.");
+            return matches.getFirst();
+        }
+        return sets.stream().filter(set -> set.id().equals(input)).findFirst()
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "No BlueMap marker set is named '" + input + "'. Use TAB to choose one."));
     }
 
     static JourneyMapAdapter.GroupRef resolveLinkedGroup(BridgeConfig config,
@@ -171,18 +177,27 @@ public final class BridgeCommands {
                 .filter(mapping -> mapping.journeyMapGroupUuid().equals(groupId))
                 .map(BridgeConfig.Mapping::blueMapMarkerSet)
                 .collect(java.util.stream.Collectors.toSet());
+        if (input.startsWith("id:")) {
+            String id = input.substring("id:".length());
+            if (!linked.contains(id)) throw new IllegalArgumentException(
+                    "BlueMap marker set " + id + " is not linked to this group.");
+            return sets.stream().filter(set -> set.id().equals(id)).findFirst()
+                    .orElse(new BlueMapAdapter.MarkerSetRef(id, id));
+        }
+        List<BlueMapAdapter.MarkerSetRef> matches = sets.stream()
+                .filter(set -> linked.contains(set.id()) && set.label().equalsIgnoreCase(input)).toList();
+        if (!matches.isEmpty()) {
+            Set<String> ids = new LinkedHashSet<>(matches.stream().map(BlueMapAdapter.MarkerSetRef::id).toList());
+            if (ids.size() > 1) throw new IllegalArgumentException(
+                    "Several linked marker sets are named '" + input + "'; use id:<internal ID> instead.");
+            return matches.getFirst();
+        }
         if (linked.contains(input)) {
             return sets.stream().filter(set -> set.id().equals(input)).findFirst()
                     .orElse(new BlueMapAdapter.MarkerSetRef(input, input));
         }
-        List<BlueMapAdapter.MarkerSetRef> matches = sets.stream()
-                .filter(set -> linked.contains(set.id()) && set.label().equalsIgnoreCase(input)).toList();
-        if (matches.isEmpty()) throw new IllegalArgumentException(
-                "No marker set named '" + input + "' is linked to this group. Use TAB or its stored ID.");
-        Set<String> ids = new LinkedHashSet<>(matches.stream().map(BlueMapAdapter.MarkerSetRef::id).toList());
-        if (ids.size() > 1) throw new IllegalArgumentException(
-                "Several linked marker sets are named '" + input + "'; use its internal ID instead.");
-        return matches.getFirst();
+        throw new IllegalArgumentException(
+                "No marker set named '" + input + "' is linked to this group. Use TAB or id:<stored ID>.");
     }
 
     private static CompletableFuture<Suggestions> suggestGroups(JourneyMapAdapter adapter,
