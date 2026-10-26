@@ -36,7 +36,7 @@ dependencies {
     compileOnly "de.bluecolored:bluemap-api:${project.bluemap_api_version}"
     compileOnly "org.yaml:snakeyaml:${project.snakeyaml_version}"
 
-    testImplementation platform("org.junit:junit-bom:6.0.1")
+    testImplementation platform("org.junit:junit-bom:6.1.3")
     testImplementation "org.junit.jupiter:junit-jupiter"
     testImplementation "org.yaml:snakeyaml:${project.snakeyaml_version}"
     testImplementation("info.journeymap:journeymap-api-common:${project.journeymap_api_version}") {
