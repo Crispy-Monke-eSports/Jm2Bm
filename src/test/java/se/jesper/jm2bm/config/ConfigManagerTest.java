@@ -136,6 +136,49 @@ class ConfigManagerTest {
         assertThrows(ConfigException.class, manager::reload);
     }
 
+    @Test
+    void rejectsMissingOrNullMappingsWithoutReplacingActiveConfig() throws Exception {
+        ConfigManager manager = manager();
+        manager.initialize();
+        manager.link(GROUP, "towns");
+        BridgeConfig valid = manager.active();
+
+        Files.writeString(directory.resolve("config.yaml"), """
+                syncOnStartup: true
+                defaultIcon: default.svg
+                mappings:
+                """);
+        assertThrows(ConfigException.class, manager::reload);
+        assertSame(valid, manager.active());
+
+        Files.writeString(directory.resolve("config.yaml"), """
+                syncOnStartup: true
+                defaultIcon: default.svg
+                """);
+        assertThrows(ConfigException.class, manager::reload);
+        assertSame(valid, manager.active());
+    }
+
+    @Test
+    void rejectsMisspelledAndUnknownFields() throws Exception {
+        ConfigManager manager = manager();
+        manager.initialize();
+        Files.writeString(directory.resolve("config.yaml"), """
+                syncOnStartup: true
+                defaultIcon: default.svg
+                mapping: []
+                mappings: []
+                """);
+        assertThrows(ConfigException.class, manager::reload);
+
+        Files.writeString(directory.resolve("config.yaml"), yamlWithMappings("""
+                - journeyMapGroupUuid: 550e8400-e29b-41d4-a716-446655440000
+                  blueMapMarkerSet: towns
+                  icno: town.svg
+                """));
+        assertThrows(ConfigException.class, manager::reload);
+    }
+
     private ConfigManager manager() {
         return new ConfigManager(LoggerFactory.getLogger("test"), directory);
     }

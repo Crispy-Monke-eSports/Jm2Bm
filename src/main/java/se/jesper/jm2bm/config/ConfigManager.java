@@ -26,6 +26,9 @@ import java.util.Set;
 import java.util.UUID;
 
 public final class ConfigManager {
+    private static final Set<String> ROOT_FIELDS = Set.of("syncOnStartup", "defaultIcon", "mappings");
+    private static final Set<String> MAPPING_FIELDS = Set.of(
+            "journeyMapGroupUuid", "blueMapMarkerSet", "icon");
     private final Logger logger;
     private final Path directory;
     private final Path iconDirectory;
@@ -145,12 +148,15 @@ public final class ConfigManager {
         if (!(document instanceof Map<?, ?> root)) {
             throw new ConfigException("config.yaml must contain a YAML mapping");
         }
+        rejectUnknownFields(root, ROOT_FIELDS, "config.yaml");
 
         boolean syncOnStartup = optionalBoolean(root, "syncOnStartup", true);
         String defaultIcon = optionalString(root, "defaultIcon", "default.svg");
         validateIconPath(defaultIcon, "defaultIcon");
+        if (!root.containsKey("mappings")) {
+            throw new ConfigException("mappings is required and must be a list");
+        }
         Object rawMappings = root.get("mappings");
-        if (rawMappings == null) rawMappings = List.of();
         if (!(rawMappings instanceof List<?> entries)) {
             throw new ConfigException("mappings must be a list");
         }
@@ -160,6 +166,7 @@ public final class ConfigManager {
             if (!(entries.get(i) instanceof Map<?, ?> mapping)) {
                 throw new ConfigException("mappings[" + i + "] must be a mapping");
             }
+            rejectUnknownFields(mapping, MAPPING_FIELDS, "mappings[" + i + "]");
             UUID groupId;
             try {
                 groupId = UUID.fromString(requiredString(mapping, "journeyMapGroupUuid", "mappings[" + i + "]"));
@@ -256,6 +263,15 @@ public final class ConfigManager {
     private static String requireText(String value, String field) throws ConfigException {
         if (value == null || value.isBlank()) throw new ConfigException(field + " must not be blank");
         return value.trim();
+    }
+
+    private static void rejectUnknownFields(Map<?, ?> values, Set<String> allowed, String location)
+            throws ConfigException {
+        for (Object key : values.keySet()) {
+            if (!(key instanceof String name) || !allowed.contains(name)) {
+                throw new ConfigException(location + " contains unknown field '" + key + "'");
+            }
+        }
     }
 
     private static void validateIconPath(String value, String field) throws ConfigException {
