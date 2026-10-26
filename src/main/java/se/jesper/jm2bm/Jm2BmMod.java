@@ -1,10 +1,10 @@
 package se.jesper.jm2bm;
 
 import de.bluecolored.bluemap.api.BlueMapAPI;
+import com.mojang.brigadier.CommandDispatcher;
 import journeymap.api.v2.server.IServerAPI;
-import net.fabricmc.api.ModInitializer;
-import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
-import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
+import net.minecraft.commands.CommandSourceStack;
+import net.minecraft.server.MinecraftServer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se.jesper.jm2bm.bluemap.BlueMapAdapter;
@@ -16,10 +16,11 @@ import se.jesper.jm2bm.journeymap.JourneyMapAdapter;
 import se.jesper.jm2bm.journeymap.JourneyMapServerPlugin;
 import se.jesper.jm2bm.sync.SyncCoordinator;
 
+import java.nio.file.Path;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
-public final class Jm2BmMod implements ModInitializer {
+public final class Jm2BmMod {
     public static final String MOD_ID = "jm2bm";
     public static final Logger LOGGER = LoggerFactory.getLogger("Jm2Bm");
     private static volatile Jm2BmMod instance;
@@ -32,10 +33,19 @@ public final class Jm2BmMod implements ModInitializer {
     private Consumer<BlueMapAPI> blueMapEnableListener;
     private Consumer<BlueMapAPI> blueMapDisableListener;
 
-    @Override
-    public void onInitialize() {
-        instance = this;
-        configManager = new ConfigManager(LOGGER);
+    private Jm2BmMod() {
+    }
+
+    public static synchronized void initialize(Path configDirectory) {
+        if (instance != null) return;
+
+        Jm2BmMod mod = new Jm2BmMod();
+        mod.initializeInternal(configDirectory);
+        instance = mod;
+    }
+
+    private void initializeInternal(Path configDirectory) {
+        configManager = new ConfigManager(LOGGER, configDirectory.resolve(MOD_ID));
         final BridgeConfig initialConfig;
         try {
             initialConfig = configManager.initialize();
@@ -59,19 +69,30 @@ public final class Jm2BmMod implements ModInitializer {
         BlueMapAPI.onEnable(blueMapEnableListener);
         BlueMapAPI.onDisable(blueMapDisableListener);
 
-        CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) ->
-                BridgeCommands.register(dispatcher, configManager, coordinator));
-        ServerLifecycleEvents.SERVER_STARTED.register(server -> {
-            coordinator.setServer(server);
-            if (initialConfig.syncOnStartup()) coordinator.trigger("server startup");
-        });
-        ServerLifecycleEvents.SERVER_STOPPING.register(server -> coordinator.clearServer());
-        ServerLifecycleEvents.SERVER_STOPPED.register(server -> {
-            BlueMapAPI.unregisterListener(blueMapEnableListener);
-            BlueMapAPI.unregisterListener(blueMapDisableListener);
-        });
-
         LOGGER.info("[Jm2Bm] Initialized with {} mapping(s)", initialConfig.mappings().size());
+    }
+
+    public static void registerCommands(CommandDispatcher<CommandSourceStack> dispatcher) {
+        Jm2BmMod mod = requireInstance();
+        BridgeCommands.register(dispatcher, mod.configManager, mod.coordinator);
+    }
+
+    public static void onServerStarted(MinecraftServer server) {
+        Jm2BmMod mod = requireInstance();
+        mod.coordinator.setServer(server);
+        if (mod.configManager.active().syncOnStartup()) mod.coordinator.trigger("server startup");
+    }
+
+    public static void onServerStopping() {
+        Jm2BmMod mod = instance;
+        if (mod != null) mod.coordinator.clearServer();
+    }
+
+    public static void onServerStopped() {
+        Jm2BmMod mod = instance;
+        if (mod == null) return;
+        BlueMapAPI.unregisterListener(mod.blueMapEnableListener);
+        BlueMapAPI.unregisterListener(mod.blueMapDisableListener);
     }
 
     public static void onJourneyMapReady(IServerAPI api) {
@@ -95,5 +116,11 @@ public final class Jm2BmMod implements ModInitializer {
     public static boolean blueMapConnected() {
         Jm2BmMod mod = instance;
         return mod != null && mod.blueMap.isConnected();
+    }
+
+    private static Jm2BmMod requireInstance() {
+        Jm2BmMod mod = instance;
+        if (mod == null) throw new IllegalStateException("Jm2Bm has not been initialized");
+        return mod;
     }
 }

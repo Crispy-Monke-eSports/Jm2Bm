@@ -5,7 +5,6 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
 import com.google.gson.JsonParser;
-import net.fabricmc.loader.api.FabricLoader;
 import org.slf4j.Logger;
 
 import java.io.IOException;
@@ -36,11 +35,7 @@ public final class ConfigManager {
     private final Path configFile;
     private volatile BridgeConfig active;
 
-    public ConfigManager(Logger logger) {
-        this(logger, FabricLoader.getInstance().getConfigDir().resolve("jm2bm"));
-    }
-
-    ConfigManager(Logger logger, Path directory) {
+    public ConfigManager(Logger logger, Path directory) {
         this.logger = Objects.requireNonNull(logger);
         this.directory = directory.toAbsolutePath().normalize();
         this.iconDirectory = this.directory.resolve("icons");

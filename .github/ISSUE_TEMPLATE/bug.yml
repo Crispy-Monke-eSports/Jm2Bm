@@ -10,7 +10,7 @@ body:
     id: versions
     attributes:
       label: Versions
-      description: Jm2Bm, Minecraft, Fabric Loader/API, JourneyMap, BlueMap, and Java versions.
+      description: Jm2Bm, Minecraft, mod loader (Fabric Loader/API or NeoForge), JourneyMap, BlueMap, and Java versions.
       placeholder: Jm2Bm 1.0.0, Minecraft 26.3, ...
     validations:
       required: true

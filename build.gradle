@@ -1,5 +1,5 @@
 plugins {
-    id "net.fabricmc.fabric-loom" version "${loom_version}"
+    id "java"
     id "maven-publish"
 }
 
@@ -11,61 +11,99 @@ base {
 }
 
 def archiveBaseName = project.archives_base_name
-def resourceProperties = ["version": project.version]
+def commonBuildDirectory = project(":common").layout.buildDirectory
+def fabricBuildDirectory = project(":fabric").layout.buildDirectory
+def neoForgeBuildDirectory = project(":neoforge").layout.buildDirectory
 
-repositories {
-    mavenCentral()
-    maven { url = "https://maven.blamejared.com" }
-    maven { url = "https://repo.bluecolored.de/releases" }
+java {
+    toolchain.languageVersion = JavaLanguageVersion.of(25)
+    withSourcesJar()
 }
 
-dependencies {
-    minecraft "com.mojang:minecraft:${project.minecraft_version}"
-    implementation "net.fabricmc:fabric-loader:${project.fabric_loader_version}"
-    implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
-
-    compileOnly("info.journeymap:journeymap-api-fabric:${project.journeymap_api_version}") {
-        transitive = false
+sourceSets {
+    main {
+        java.setSrcDirs([])
+        resources.setSrcDirs([])
     }
-    compileOnly "de.bluecolored:bluemap-api:${project.bluemap_api_version}"
-
-    testImplementation platform("org.junit:junit-bom:6.0.1")
-    testImplementation "org.junit.jupiter:junit-jupiter"
-    testRuntimeOnly "org.junit.platform:junit-platform-launcher"
-}
-
-processResources {
-    inputs.properties resourceProperties
-    filesMatching("fabric.mod.json") {
-        expand resourceProperties
+    test {
+        java.setSrcDirs([])
+        resources.setSrcDirs([])
     }
 }
 
-tasks.withType(JavaCompile).configureEach {
-    it.options.release = 25
-    it.options.encoding = "UTF-8"
+tasks.named("jar", Jar) {
+    dependsOn(":common:classes", ":fabric:classes", ":neoforge:classes")
+    from(commonBuildDirectory.dir("classes/java/main"))
+    from(commonBuildDirectory.dir("resources/main"))
+    from(fabricBuildDirectory.dir("classes/java/main")) {
+        include("se/jesper/jm2bm/fabric/**")
+    }
+    from(fabricBuildDirectory.dir("resources/main")) {
+        include("fabric.mod.json")
+        include("META-INF/jarjar/flow-math-1.0.3.jar")
+    }
+    from(neoForgeBuildDirectory.dir("classes/java/main")) {
+        include("se/jesper/jm2bm/neoforge/**")
+    }
+    from(neoForgeBuildDirectory.dir("resources/main")) {
+        include("META-INF/neoforge.mods.toml")
+        include("META-INF/jarjar/metadata.json")
+    }
+    from("LICENSE") {
+        rename { "${it}_${archiveBaseName}" }
+    }
+    duplicatesStrategy = DuplicatesStrategy.FAIL
+}
+
+tasks.named("sourcesJar", Jar) {
+    dependsOn(":common:classes", ":fabric:classes", ":neoforge:classes")
+    from("src/main/java")
+    from("src/main/resources") {
+        exclude("fabric.mod.json")
+    }
+    from("fabric/src/main/java")
+    from("fabric/src/main/resources")
+    from("neoforge/src/main/java")
+    from("neoforge/src/main/resources")
+}
+
+tasks.named("check") {
+    dependsOn("verifyUniversalJar", ":common:test", ":fabric:check", ":neoforge:check")
+}
+
+def universalJarFile = tasks.named("jar", Jar).flatMap { it.archiveFile }
+tasks.register("verifyUniversalJar") {
+    dependsOn(tasks.named("jar"))
+    inputs.file(universalJarFile)
+    doLast {
+        def requiredEntries = [
+                "fabric.mod.json",
+                "META-INF/neoforge.mods.toml",
+                "META-INF/jarjar/metadata.json",
+                "META-INF/jarjar/flow-math-1.0.3.jar",
+                "se/jesper/jm2bm/fabric/Jm2BmFabric.class",
+                "se/jesper/jm2bm/neoforge/Jm2BmNeoForge.class",
+                "se/jesper/jm2bm/Jm2BmMod.class"
+        ]
+        new java.util.zip.ZipFile(universalJarFile.get().asFile).withCloseable { zip ->
+            requiredEntries.each { entry ->
+                if (zip.getEntry(entry) == null) {
+                    throw new GradleException("Universal JAR is missing ${entry}")
+                }
+            }
+            if (zip.entries().any { entry ->
+                entry.name.startsWith("journeymap/api/")
+                        || entry.name.startsWith("de/bluecolored/bluemap/api/")
+            }) {
+                throw new GradleException("Universal JAR must not bundle JourneyMap or BlueMap API classes")
+            }
+        }
+    }
 }
 
 tasks.withType(AbstractArchiveTask).configureEach {
     reproducibleFileOrder = true
     preserveFileTimestamps = false
-}
-
-java {
-    toolchain.languageVersion = JavaLanguageVersion.of(25)
-    withSourcesJar()
-    sourceCompatibility = JavaVersion.VERSION_25
-    targetCompatibility = JavaVersion.VERSION_25
-}
-
-test {
-    useJUnitPlatform()
-}
-
-jar {
-    from("LICENSE") {
-        rename { "${it}_${archiveBaseName}" }
-    }
 }
 
 publishing {

@@ -4,20 +4,20 @@
 [![GitHub release](https://img.shields.io/github/v/release/Crispy-Monke-eSports/Jm2Bm)](https://github.com/Crispy-Monke-eSports/Jm2Bm/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-Jm2Bm is a dedicated-server Fabric mod for Minecraft Java Edition 26.3. It keeps selected,
-server-managed JourneyMap waypoint groups synchronized into existing BlueMap marker sets.
-JourneyMap is always the source of truth.
+Jm2Bm is a dedicated-server mod for Minecraft Java Edition 26.3. The same universal JAR supports
+both Fabric and NeoForge. It keeps selected, server-managed JourneyMap waypoint groups synchronized
+into existing BlueMap marker sets. JourneyMap is always the source of truth.
 
 ## Requirements
 
 - Java 25
-- Fabric Loader 0.19.5 or newer
-- Fabric API for Minecraft 26.3
-- JourneyMap 26.3-6.0.10+fabric or newer compatible 6.0.x build
-- BlueMap 5.x with BlueMap API 2.8.x compatibility
+- Fabric Loader 0.19.5 or newer and Fabric API 0.165.0+26.3, **or** NeoForge 26.3.0.98 or newer
+- The matching Fabric or NeoForge build of JourneyMap 26.3-6.0.10 or newer compatible 6.0.x build
+- The matching Fabric or NeoForge build of BlueMap 5.x with BlueMap API 2.8.x compatibility
 
-Install the Jm2Bm JAR together with JourneyMap, BlueMap, and Fabric API in the server's `mods/`
-directory. No Jm2Bm client mod is needed.
+Install the same Jm2Bm JAR together with the loader-matching JourneyMap and BlueMap JARs in the
+server's `mods/` directory. Fabric servers also need Fabric API. No Jm2Bm client mod is needed, and
+Fabric and NeoForge dependencies must not be mixed on one server.
 
 ## Configuration
 
@@ -86,12 +86,14 @@ startup (when enabled), every BlueMap enable/reload, and `/jm2bm reload`; there 
 ./gradlew clean test build
 ```
 
-The distributable JAR is written to `build/libs/`. JourneyMap and BlueMap are compile-only
-dependencies and are not bundled into it.
+The universal distributable JAR is written to `build/libs/`. It contains both loader manifests and
+small loader-specific entrypoints around one shared implementation. JourneyMap and BlueMap API
+classes are not bundled. BlueMap's public `flow-math` transitive dependency is nested with metadata
+for both loaders so NeoForge can safely deduplicate it.
 
 ## Contributing and releases
 
-Pull requests are verified on Java 25 by GitHub Actions. See [CONTRIBUTING.md](CONTRIBUTING.md)
+Pull requests build and verify the universal Fabric/NeoForge JAR on Java 25 with GitHub Actions. See [CONTRIBUTING.md](CONTRIBUTING.md)
 for the development and safety requirements and [SECURITY.md](SECURITY.md) for private security
 reporting guidance.
 

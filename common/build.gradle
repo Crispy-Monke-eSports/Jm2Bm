@@ -1,0 +1,52 @@
+plugins {
+    id "java-library"
+    id "net.neoforged.moddev" version "${moddev_version}"
+}
+
+version = rootProject.mod_version
+group = rootProject.maven_group
+
+repositories {
+    mavenCentral()
+    maven { url = "https://maven.blamejared.com" }
+    maven { url = "https://repo.bluecolored.de/releases" }
+}
+
+neoForge {
+    neoFormVersion = project.neoform_version
+    addModdingDependenciesTo(sourceSets["test"])
+}
+
+sourceSets {
+    main {
+        java.srcDir(rootProject.file("src/main/java"))
+        resources.srcDir(rootProject.file("src/main/resources"))
+        resources.exclude("fabric.mod.json")
+    }
+    test {
+        java.srcDir(rootProject.file("src/test/java"))
+        resources.srcDir(rootProject.file("src/test/resources"))
+    }
+}
+
+dependencies {
+    compileOnly("info.journeymap:journeymap-api-common:${project.journeymap_api_version}") {
+        transitive = false
+    }
+    compileOnly "de.bluecolored:bluemap-api:${project.bluemap_api_version}"
+
+    testImplementation platform("org.junit:junit-bom:6.0.1")
+    testImplementation "org.junit.jupiter:junit-jupiter"
+    testRuntimeOnly "org.junit.platform:junit-platform-launcher"
+}
+
+java.toolchain.languageVersion = JavaLanguageVersion.of(25)
+
+tasks.withType(JavaCompile).configureEach {
+    options.release = 25
+    options.encoding = "UTF-8"
+}
+
+test {
+    useJUnitPlatform()
+}

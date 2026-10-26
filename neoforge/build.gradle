@@ -1,0 +1,72 @@
+plugins {
+    id "java-library"
+    id "net.neoforged.moddev" version "${moddev_version}"
+}
+
+version = rootProject.mod_version
+group = rootProject.maven_group
+
+base {
+    archivesName = "${rootProject.archives_base_name}-neoforge"
+}
+
+repositories {
+    mavenCentral()
+    maven { url = "https://maven.blamejared.com" }
+    maven { url = "https://repo.bluecolored.de/releases" }
+}
+
+sourceSets.main {
+    java.srcDir(rootProject.file("src/main/java"))
+    resources.srcDir(rootProject.file("src/main/resources"))
+}
+
+neoForge {
+    version = project.neoforge_version
+    runs {
+        server {
+            server()
+            programArgument "--nogui"
+        }
+    }
+    mods {
+        jm2bm {
+            sourceSet(sourceSets.main)
+        }
+    }
+}
+
+configurations {
+    bundledLibrary
+}
+
+dependencies {
+    compileOnly("info.journeymap:journeymap-api-neoforge:${project.journeymap_api_version}") {
+        transitive = false
+    }
+    compileOnly "de.bluecolored:bluemap-api:${project.bluemap_api_version}"
+    bundledLibrary "com.flowpowered:flow-math:1.0.3"
+    runtimeOnly "com.flowpowered:flow-math:1.0.3"
+}
+
+def resourceProperties = [
+        "version": project.version,
+        "neoforge_version": project.neoforge_version
+]
+
+processResources {
+    inputs.properties resourceProperties
+    from(configurations.bundledLibrary) {
+        into "META-INF/jarjar"
+    }
+    filesMatching("META-INF/neoforge.mods.toml") {
+        expand resourceProperties
+    }
+}
+
+java.toolchain.languageVersion = JavaLanguageVersion.of(25)
+
+tasks.withType(JavaCompile).configureEach {
+    options.release = 25
+    options.encoding = "UTF-8"
+}

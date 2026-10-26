@@ -1,0 +1,65 @@
+plugins {
+    id "java-library"
+    id "net.fabricmc.fabric-loom" version "${loom_version}"
+}
+
+version = rootProject.mod_version
+group = rootProject.maven_group
+
+base {
+    archivesName = "${rootProject.archives_base_name}-fabric"
+}
+
+repositories {
+    mavenCentral()
+    maven { url = "https://maven.blamejared.com" }
+    maven { url = "https://repo.bluecolored.de/releases" }
+}
+
+sourceSets.main {
+    java.srcDir(rootProject.file("src/main/java"))
+    resources.srcDir(rootProject.file("src/main/resources"))
+}
+
+loom {
+    runs {
+        server {
+            server()
+            runDir("../run")
+        }
+    }
+}
+
+configurations {
+    bundledLibrary
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+    implementation "net.fabricmc:fabric-loader:${project.fabric_loader_version}"
+    implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+    compileOnly("info.journeymap:journeymap-api-fabric:${project.journeymap_api_version}") {
+        transitive = false
+    }
+    compileOnly "de.bluecolored:bluemap-api:${project.bluemap_api_version}"
+    bundledLibrary "com.flowpowered:flow-math:1.0.3"
+}
+
+def resourceProperties = ["version": project.version]
+
+processResources {
+    inputs.properties resourceProperties
+    from(configurations.bundledLibrary) {
+        into "META-INF/jarjar"
+    }
+    filesMatching("fabric.mod.json") {
+        expand resourceProperties
+    }
+}
+
+java.toolchain.languageVersion = JavaLanguageVersion.of(25)
+
+tasks.withType(JavaCompile).configureEach {
+    options.release = 25
+    options.encoding = "UTF-8"
+}

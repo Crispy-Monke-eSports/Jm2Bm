@@ -1,11 +1,11 @@
 # Jm2Bm
 
-**Teknisk specifikation · v1.0 (för implementation)**
+**Teknisk specifikation · v1.1 (för implementation)**
 **Datum:** 2026-10-25
-**Målmiljö:** Minecraft Java Edition 26.3 · Fabric · dedikerad server
+**Målmiljö:** Minecraft Java Edition 26.3 · Fabric eller NeoForge · dedikerad server
 **Modnamn / mod-id:** `Jm2Bm` / `jm2bm`
 
-> **Syfte:** En liten, renodlad serverside-Fabric-mod som håller utvalda BlueMap Marker Sets automatiskt synkroniserade med administratörsskapade, globala JourneyMap-waypoints. JourneyMap är den enda sanningskällan. Gruppkopplingar och BlueMap-ikoner definieras i en enkel JSON-konfiguration.
+> **Syfte:** En liten, renodlad servermod i en gemensam Fabric/NeoForge-JAR som håller utvalda BlueMap Marker Sets automatiskt synkroniserade med administratörsskapade, globala JourneyMap-waypoints. JourneyMap är den enda sanningskällan. Gruppkopplingar och BlueMap-ikoner definieras i en enkel JSON-konfiguration.
 
 ## 1. Beslut som är låsta
 
@@ -48,14 +48,15 @@
 | Komponent | Krav / utgångspunkt |
 | --- | --- |
 | Minecraft | Java Edition **26.3** |
-| Modloader | **Fabric**, på dedikerad server |
+| Modloader | **Fabric** eller **NeoForge**, på dedikerad server |
 | Java | **25** enligt JourneyMaps 26.3-release |
-| JourneyMap | **6.0.x** för 26.3; publicerad Fabric-release **26.3-6.0.10+fabric** |
+| JourneyMap | **6.0.x** för 26.3; använd loader-matchande Fabric- eller NeoForge-release **26.3-6.0.10** eller senare kompatibel version |
 | JourneyMap API | Publicerad 26.3-release uppger **API v26.3-2.0.0** |
 | BlueMap | En kompatibel **5.x-version** för Minecraft 26.3; 5.29 finns publicerad |
-| Fabric API | Kompatibel version för 26.3, enligt JourneyMaps/Fabrics krav |
+| Fabric API | Krävs endast på Fabric; kompatibel version för 26.3 |
+| NeoForge | **26.3.0.98** eller senare kompatibel 26.3-version |
 
-Både JourneyMap och BlueMap är **nödvändiga serverberoenden** för att bryggan ska fungera. Bryggan ska inte paketera/shada API-bibliotekens klasser i sin distribuerade JAR.
+Både JourneyMap och BlueMap är **nödvändiga serverberoenden** för att bryggan ska fungera. Bryggan ska inte paketera/shada deras API-klasser i sin distribuerade JAR. BlueMaps publika transitiva `flow-math`-beroende får ligga som loader-deklarerad nested dependency så att NeoForge kan deduplicera versionen.
 
 **Verifieringspunkt före kodning:** kontrollera de exakta API-signaturerna, eventnamnen, Gradle-artifakterna och laddningsordningen för **26.3**, inte enbart exempel från 1.21.1. JourneyMaps offentliga API-exempel visar bland annat Fabric-entrypointen `journeymap_server`, men versionsspecifikt bygge måste verifieras.
 
@@ -89,8 +90,8 @@ BlueMap Marker Sets är **per BlueMap-karta**: samma set-ID kan förekomma på f
 ```text
 <server>/
 ├─ mods/
-│  ├─ journeymap-...+fabric.jar
-│  ├─ bluemap-...jar
+│  ├─ journeymap-...-<fabric|neoforge>.jar
+│  ├─ bluemap-...-<fabric|neoforge>.jar
 │  └─ jm2bm-...jar
 └─ config/
    └─ jm2bm/
@@ -237,7 +238,7 @@ reconcileAll():
 
 ## 9. Events, livscykel och trådar
 
-- Registrera en **server-side JourneyMap API v2-plugin** med korrekt Fabric-entrypoint enligt den aktuella 26.3-versionen.
+- Registrera en **server-side JourneyMap API v2-plugin** med Fabric-entrypoint och NeoForges annoteringsbaserade upptäckt enligt den aktuella 26.3-versionen.
 - Lyssna på server-events för global waypoint skapad/uppdaterad/raderad, globala gruppändringar och eventuellt gruppbyte om API:t exponerar separata händelser.
 - Vid event: markera berörda set som ändrade och utför avstämning, så att snabba följdevents kan slås ihop utan onödiga upprepningar.
 - Gör **en full avstämning** när Minecraft-servern, JourneyMap och BlueMap har initierats och är redo.
@@ -297,7 +298,7 @@ Logga gärna formatet `[Jm2Bm] Sync completed: created=X updated=Y removed=Z set
 
 ```text
 src/main/java/.../jm2bm/
-├─ Jm2BmMod.java       # Fabric ModInitializer, config, kommandon
+├─ Jm2BmMod.java       # gemensam runtime, config och kommandon
 ├─ config/
 │  ├─ BridgeConfig.java
 │  └─ ConfigManager.java
@@ -314,13 +315,15 @@ src/main/java/.../jm2bm/
 │  └─ SyncStatus.java
 └─ command/
    └─ BridgeCommands.java
+fabric/src/main/java/.../Jm2BmFabric.java       # Fabric-entrypoint
+neoforge/src/main/java/.../Jm2BmNeoForge.java   # NeoForge-entrypoint
 ```
 
 Håll API-specifik kod i var sin adapter och låt `SyncCoordinator` arbeta med enkla, egna datatyper. Det förenklar tester och gör det lättare att hantera mindre API-skillnader i framtiden.
 
 ## 13. Acceptanskriterier för v1
 
-- [ ] Bryggan startar på dedikerad Fabric 26.3-server med JourneyMap och BlueMap installerade, utan klientkod i servermodden.
+- [ ] Samma JAR startar på dedikerad Fabric 26.3- och NeoForge 26.3-server med loader-matchande JourneyMap och BlueMap installerade, utan klientkod i servermodden.
 - [ ] Enbart administratörsskapade **globala** JourneyMap-waypoints hämtas; inga personliga waypoints exponeras.
 - [ ] Gruppkopplingar använder stabila **GUID/UUID**, och waypoint-markers har stabilt ID.
 - [ ] En ny waypoint blir synlig i korrekt, befintligt BlueMap Marker Set utan serveromstart.
@@ -354,6 +357,8 @@ Dessa punkter ska avgöras innan färdig kod publiceras; de ändrar inte den fun
 ## 15. Referenser
 
 - [JourneyMap 26.3-6.0.10 + Fabric (Modrinth)](https://modrinth.com/plugin/journeymap/version/26.3-6.0.10%2Bfabric) — kompatibilitet, Java 25, API-version.
+- [JourneyMap 26.3-6.0.10 + NeoForge (Modrinth)](https://modrinth.com/plugin/journeymap/version/26.3-6.0.10%2Bneoforge) — NeoForge-kompatibilitet och API-version.
+- [NeoForge 26.3 MDK](https://github.com/NeoForgeMDKs/MDK-26.3-ModDevGradle) — auktoritativ bygg- och livscykelreferens.
 - [JourneyMap API v2 — integrationsguide](https://teamjm.github.io/journeymap-docs/6.0.x/tools/integration/) — server-events, API v2 och versionsspecifika anvisningar.
 - [JourneyMap API-källkod](https://github.com/TeamJM/journeymap-api) — auktoritativ referens för signaturer.
 - [JourneyMap API: exempel på serverplugin](https://github.com/TeamJM/journeymap-api/blob/1.21.1_2.0.0/docs/howto.md) — äldre referens för `journeymap_server`; verifiera mot 26.3.

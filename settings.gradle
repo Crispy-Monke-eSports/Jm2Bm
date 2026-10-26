@@ -1,8 +1,8 @@
 pluginManagement {
     repositories {
-        maven { url = "https://maven.fabricmc.net/" }
         gradlePluginPortal()
         mavenCentral()
+        maven { url = "https://maven.fabricmc.net/" }
     }
 }
 
@@ -11,3 +11,4 @@ plugins {
 }
 
 rootProject.name = "Jm2Bm"
+include("common", "fabric", "neoforge")

@@ -13,9 +13,12 @@
   "license": "MIT",
   "environment": "server",
   "entrypoints": {
-    "main": ["se.jesper.jm2bm.Jm2BmMod"],
+    "main": ["se.jesper.jm2bm.fabric.Jm2BmFabric"],
     "journeymap_server": ["se.jesper.jm2bm.journeymap.JourneyMapServerPlugin"]
   },
+  "jars": [
+    { "file": "META-INF/jarjar/flow-math-1.0.3.jar" }
+  ],
   "depends": {
     "fabricloader": ">=0.19.5",
     "fabric-api": "*",

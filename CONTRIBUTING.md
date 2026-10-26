@@ -9,8 +9,10 @@ JourneyMap-to-BlueMap contract described in `Jm2Bm-specifikation.md`.
 2. Clone the repository.
 3. Run `./gradlew clean build`.
 
-The Gradle build downloads Minecraft, Fabric API, and compile-only API dependencies. JourneyMap
-and BlueMap classes must never be shaded into the distributable JAR.
+The Gradle build downloads Minecraft, Fabric API, NeoForge, and compile-only API dependencies.
+JourneyMap and BlueMap API classes must never be shaded into the distributable JAR. The universal
+JAR intentionally nests only BlueMap's public `flow-math` transitive dependency, with loader
+metadata that permits version deduplication.
 
 ## Pull requests
 

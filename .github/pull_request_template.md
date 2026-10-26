@@ -7,8 +7,8 @@ Describe the change and why it is needed.
 - [ ] `./gradlew clean build` passes
 - [ ] New or changed behavior has tests where practical
 - [ ] Documentation and example configuration are updated
-- [ ] No JourneyMap or BlueMap API classes are bundled in the output JAR
+- [ ] The universal JAR contains both loader manifests and no JourneyMap or BlueMap API classes
 
 ## Compatibility
 
-List any effect on Minecraft, Fabric, JourneyMap, BlueMap, Java, or configuration compatibility.
+List any effect on Minecraft, Fabric, NeoForge, JourneyMap, BlueMap, Java, or configuration compatibility.

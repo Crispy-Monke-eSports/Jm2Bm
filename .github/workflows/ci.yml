@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   build:
-    name: Build and test (Java 25)
+    name: Build and test universal JAR (Java 25)
     runs-on: ubuntu-24.04
     timeout-minutes: 20
 
