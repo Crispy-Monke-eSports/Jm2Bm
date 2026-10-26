@@ -81,7 +81,7 @@ public final class ConfigManager {
                     && mapping.blueMapMarkerSet().equals(markerSet)) {
                 active = source;
                 return new MutationResult(source, removedSets(previouslyActive, source),
-                        !source.equals(previouslyActive));
+                        false, !source.equals(previouslyActive));
             }
         }
         List<BridgeConfig.Mapping> mappings = new ArrayList<>(source.mappings());
@@ -89,7 +89,8 @@ public final class ConfigManager {
         BridgeConfig candidate = new BridgeConfig(source.syncOnStartup(), source.defaultIcon(), mappings);
         write(candidate);
         active = candidate;
-        return new MutationResult(candidate, removedSets(previouslyActive, candidate), true);
+        return new MutationResult(candidate, removedSets(previouslyActive, candidate), true,
+                !candidate.equals(previouslyActive));
     }
 
     public synchronized MutationResult unlink(UUID groupId, String markerSet) throws ConfigException {
@@ -105,12 +106,13 @@ public final class ConfigManager {
         if (mappings.size() == source.mappings().size()) {
             active = source;
             return new MutationResult(source, removedSets(previouslyActive, source),
-                    !source.equals(previouslyActive));
+                    false, !source.equals(previouslyActive));
         }
         BridgeConfig candidate = new BridgeConfig(source.syncOnStartup(), source.defaultIcon(), mappings);
         write(candidate);
         active = candidate;
-        return new MutationResult(candidate, removedSets(previouslyActive, candidate), true);
+        return new MutationResult(candidate, removedSets(previouslyActive, candidate), true,
+                !candidate.equals(previouslyActive));
     }
 
     public BridgeConfig active() {
@@ -309,6 +311,7 @@ public final class ConfigManager {
     public record ReloadResult(BridgeConfig previous, BridgeConfig current, Set<String> removedMarkerSets) {
     }
 
-    public record MutationResult(BridgeConfig current, Set<String> removedMarkerSets, boolean changed) {
+    public record MutationResult(BridgeConfig current, Set<String> removedMarkerSets, boolean changed,
+                                 boolean activeConfigurationChanged) {
     }
 }

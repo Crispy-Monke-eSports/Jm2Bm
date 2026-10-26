@@ -97,6 +97,10 @@ public final class BridgeCommands {
                     ? configManager.link(group.id(), markerSet.id())
                     : configManager.unlink(group.id(), markerSet.id());
             if (!result.changed()) {
+                if (result.activeConfigurationChanged()) {
+                    coordinator.trigger("command refreshed externally changed config",
+                            result.removedMarkerSets());
+                }
                 context.getSource().sendFailure(Component.literal("Jm2Bm: '" + group.name() + "' and '"
                         + markerSet.label() + "' are " + (link ? "already linked." : "not linked.")));
                 return 0;

@@ -58,7 +58,27 @@ class ConfigManagerTest {
         ConfigManager.MutationResult result = manager.link(GROUP, "towns");
 
         assertFalse(result.changed());
+        assertFalse(result.activeConfigurationChanged());
         assertEquals(before, Files.readString(directory.resolve("config.yaml")));
+    }
+
+    @Test
+    void noOpMutationReportsExternalConfigurationChangeSeparately() throws Exception {
+        ConfigManager manager = manager();
+        manager.initialize();
+        manager.link(GROUP, "towns");
+        Files.writeString(directory.resolve("config.yaml"), yamlWithMappings("""
+                - journeyMapGroupUuid: 550e8400-e29b-41d4-a716-446655440000
+                  blueMapMarkerSet: towns
+                - journeyMapGroupUuid: 123e4567-e89b-42d3-a456-426614174000
+                  blueMapMarkerSet: manually-added
+                """));
+
+        ConfigManager.MutationResult result = manager.link(GROUP, "towns");
+
+        assertFalse(result.changed());
+        assertTrue(result.activeConfigurationChanged());
+        assertEquals(2, manager.active().mappings().size());
     }
 
     @Test
