@@ -30,10 +30,6 @@ loom {
     }
 }
 
-configurations {
-    bundledLibrary
-}
-
 dependencies {
     minecraft "com.mojang:minecraft:${project.minecraft_version}"
     implementation "net.fabricmc:fabric-loader:${project.fabric_loader_version}"
@@ -42,18 +38,15 @@ dependencies {
         transitive = false
     }
     compileOnly "de.bluecolored:bluemap-api:${project.bluemap_api_version}"
-    bundledLibrary "com.flowpowered:flow-math:1.0.3"
+    include "com.flowpowered:flow-math:1.0.3"
     compileOnly "org.yaml:snakeyaml:${project.snakeyaml_version}"
-    bundledLibrary "org.yaml:snakeyaml:${project.snakeyaml_version}"
+    include "org.yaml:snakeyaml:${project.snakeyaml_version}"
 }
 
-def resourceProperties = ["version": project.version, "snakeyaml_version": project.snakeyaml_version]
+def resourceProperties = ["version": project.version]
 
 processResources {
     inputs.properties resourceProperties
-    from(configurations.bundledLibrary) {
-        into "META-INF/jarjar"
-    }
     filesMatching("fabric.mod.json") {
         expand resourceProperties
     }

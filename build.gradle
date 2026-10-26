@@ -15,6 +15,7 @@ def snakeYamlJarName = "snakeyaml-${project.snakeyaml_version}.jar"
 def commonBuildDirectory = project(":common").layout.buildDirectory
 def fabricBuildDirectory = project(":fabric").layout.buildDirectory
 def neoForgeBuildDirectory = project(":neoforge").layout.buildDirectory
+def fabricJarFile = fabricBuildDirectory.file("libs/${project.archives_base_name}-fabric-${project.version}.jar")
 
 java {
     toolchain.languageVersion = JavaLanguageVersion.of(25)
@@ -33,16 +34,16 @@ sourceSets {
 }
 
 tasks.named("jar", Jar) {
-    dependsOn(":common:classes", ":fabric:classes", ":neoforge:classes")
+    dependsOn(":common:classes", ":fabric:jar", ":neoforge:classes")
     from(commonBuildDirectory.dir("classes/java/main"))
     from(commonBuildDirectory.dir("resources/main"))
     from(fabricBuildDirectory.dir("classes/java/main")) {
         include("se/jesper/jm2bm/fabric/**")
     }
-    from(fabricBuildDirectory.dir("resources/main")) {
+    from(fabricJarFile.map { zipTree(it) }) {
         include("fabric.mod.json")
-        include("META-INF/jarjar/flow-math-1.0.3.jar")
-        include("META-INF/jarjar/${snakeYamlJarName}")
+        include("META-INF/jars/flow-math-1.0.3.jar")
+        include("META-INF/jars/${snakeYamlJarName}")
     }
     from(neoForgeBuildDirectory.dir("classes/java/main")) {
         include("se/jesper/jm2bm/neoforge/**")
@@ -82,8 +83,8 @@ tasks.register("verifyUniversalJar") {
                 "fabric.mod.json",
                 "META-INF/neoforge.mods.toml",
                 "META-INF/jarjar/metadata.json",
-                "META-INF/jarjar/flow-math-1.0.3.jar",
-                "META-INF/jarjar/${snakeYamlJarName}",
+                "META-INF/jars/flow-math-1.0.3.jar",
+                "META-INF/jars/${snakeYamlJarName}",
                 "se/jesper/jm2bm/fabric/Jm2BmFabric.class",
                 "se/jesper/jm2bm/neoforge/Jm2BmNeoForge.class",
                 "se/jesper/jm2bm/Jm2BmMod.class"
@@ -92,6 +93,21 @@ tasks.register("verifyUniversalJar") {
             requiredEntries.each { entry ->
                 if (zip.getEntry(entry) == null) {
                     throw new GradleException("Universal JAR is missing ${entry}")
+                }
+            }
+            ["flow-math-1.0.3.jar", snakeYamlJarName].each { nestedName ->
+                def nestedEntry = zip.getEntry("META-INF/jars/${nestedName}")
+                def nestedBytes = zip.getInputStream(nestedEntry).readAllBytes()
+                def nestedFile = File.createTempFile("jm2bm-nested-", ".jar")
+                try {
+                    nestedFile.bytes = nestedBytes
+                    new java.util.zip.ZipFile(nestedFile).withCloseable { nestedZip ->
+                        if (nestedZip.getEntry("fabric.mod.json") == null) {
+                            throw new GradleException("Fabric nested JAR ${nestedName} has no fabric.mod.json")
+                        }
+                    }
+                } finally {
+                    nestedFile.delete()
                 }
             }
             if (zip.entries().any { entry ->
