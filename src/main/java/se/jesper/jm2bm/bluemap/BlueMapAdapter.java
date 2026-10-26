@@ -131,9 +131,14 @@ public final class BlueMapAdapter {
                 : !missingMarkerSets.isEmpty()
                 ? "Completed with missing marker sets: " + String.join(", ", missingMarkerSets)
                 : "OK";
-        return new ReconcileResult(success, errors.isEmpty(), total.created, total.updated, total.removed,
+        return new ReconcileResult(success, cleanupComplete(errors, missingMarkerSets),
+                total.created, total.updated, total.removed,
                 targetSets.size(), maps.size(), markerCounts, missingMarkerSets, missingGroups,
                 message);
+    }
+
+    static boolean cleanupComplete(List<String> errors, Set<String> missingMarkerSets) {
+        return errors.isEmpty() && missingMarkerSets.isEmpty();
     }
 
     private Collection<MapContext> findMaps(MinecraftServer server, BlueMapAPI api) {
