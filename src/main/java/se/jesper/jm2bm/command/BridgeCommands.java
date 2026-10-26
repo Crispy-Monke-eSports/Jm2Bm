@@ -136,6 +136,9 @@ public final class BridgeCommands {
     }
 
     static BlueMapAdapter.MarkerSetRef resolveMarkerSet(List<BlueMapAdapter.MarkerSetRef> sets, String input) {
+        if (input.startsWith("name:")) {
+            return resolveMarkerSetName(sets, input.substring("name:".length()), false);
+        }
         if (input.startsWith("id:")) {
             String id = input.substring("id:".length());
             return sets.stream().filter(set -> set.id().equals(id)).findFirst()
@@ -219,6 +222,10 @@ public final class BridgeCommands {
                 .filter(mapping -> mapping.journeyMapGroupUuid().equals(groupId))
                 .map(BridgeConfig.Mapping::blueMapMarkerSet)
                 .collect(java.util.stream.Collectors.toSet());
+        if (input.startsWith("name:")) {
+            return resolveMarkerSetName(sets.stream().filter(set -> linked.contains(set.id())).toList(),
+                    input.substring("name:".length()), true);
+        }
         if (input.startsWith("id:")) {
             String id = input.substring("id:".length());
             if (!linked.contains(id)) throw new IllegalArgumentException(
@@ -242,6 +249,18 @@ public final class BridgeCommands {
                 "No marker set named '" + input + "' is linked to this group. Use TAB or id:<stored ID>.");
     }
 
+    private static BlueMapAdapter.MarkerSetRef resolveMarkerSetName(List<BlueMapAdapter.MarkerSetRef> sets,
+            String name, boolean linkedOnly) {
+        List<BlueMapAdapter.MarkerSetRef> matches = sets.stream()
+                .filter(set -> set.label().equalsIgnoreCase(name)).toList();
+        if (matches.isEmpty()) throw new IllegalArgumentException(
+                "No " + (linkedOnly ? "linked " : "") + "BlueMap marker set is named '" + name + "'.");
+        Set<String> ids = new LinkedHashSet<>(matches.stream().map(BlueMapAdapter.MarkerSetRef::id).toList());
+        if (ids.size() > 1) throw new IllegalArgumentException(
+                "Several BlueMap marker sets are named '" + name + "'; use id:<internal ID> instead.");
+        return matches.getFirst();
+    }
+
     private static CompletableFuture<Suggestions> suggestGroups(JourneyMapAdapter adapter,
                                                                   SuggestionsBuilder builder) {
         try {
@@ -255,7 +274,8 @@ public final class BridgeCommands {
     private static CompletableFuture<Suggestions> suggestMarkerSets(BlueMapAdapter adapter,
                                                                      SuggestionsBuilder builder) {
         try {
-            return suggest(adapter.markerSets().stream().map(BlueMapAdapter.MarkerSetRef::label).toList(), builder);
+            return suggest(adapter.markerSets().stream().map(BlueMapAdapter.MarkerSetRef::label)
+                    .map(BridgeCommands::markerSetNameArgument).toList(), builder);
         } catch (IOException e) {
             return builder.buildFuture();
         }
@@ -277,7 +297,8 @@ public final class BridgeCommands {
             String input = StringArgumentType.getString(context, "journeymap-global-group");
             BridgeConfig configured = configManager.configured();
             UUID groupId = resolveLinkedGroup(configured, availableGroups(journeyMap), input).id();
-            return suggest(linkedMarkerSetNames(configured, groupId, availableMarkerSets(blueMap)), builder);
+            return suggest(linkedMarkerSetArguments(
+                    configured, groupId, availableMarkerSets(blueMap)), builder);
         } catch (ConfigException | IllegalArgumentException e) {
             return builder.buildFuture();
         }
@@ -320,6 +341,16 @@ public final class BridgeCommands {
                 .map(BlueMapAdapter.MarkerSetRef::label).orElse(id)).toList();
     }
 
+    static List<String> linkedMarkerSetArguments(BridgeConfig config, UUID groupId,
+                                                  List<BlueMapAdapter.MarkerSetRef> sets) {
+        Set<String> linked = config.mappings().stream()
+                .filter(mapping -> mapping.journeyMapGroupUuid().equals(groupId))
+                .map(BridgeConfig.Mapping::blueMapMarkerSet)
+                .collect(java.util.stream.Collectors.toSet());
+        return linked.stream().map(id -> sets.stream().filter(set -> set.id().equals(id)).findFirst()
+                .map(set -> markerSetNameArgument(set.label())).orElse("id:" + id)).toList();
+    }
+
     private static List<JourneyMapAdapter.GroupRef> availableGroups(JourneyMapAdapter journeyMap) {
         try {
             return journeyMap.groups();
@@ -343,6 +374,11 @@ public final class BridgeCommands {
 
     static String groupNameArgument(String name) {
         if (name.startsWith("name:") || name.startsWith("uuid:") || isUuid(name)) return "name:" + name;
+        return name;
+    }
+
+    static String markerSetNameArgument(String name) {
+        if (name.startsWith("name:") || name.startsWith("id:")) return "name:" + name;
         return name;
     }
 

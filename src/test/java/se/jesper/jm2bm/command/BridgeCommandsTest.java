@@ -69,6 +69,23 @@ class BridgeCommandsTest {
     }
 
     @Test
+    void markerSetNamesCanUseReservedPrefixes() throws Exception {
+        BlueMapAdapter.MarkerSetRef markerSet = new BlueMapAdapter.MarkerSetRef("towns", "id:towns");
+        BridgeConfig config = new BridgeConfig(true, "default.svg", List.of(
+                new BridgeConfig.Mapping(LINKED_GROUP, "towns", null)));
+
+        assertEquals(markerSet, BridgeCommands.resolveMarkerSet(List.of(markerSet), "name:id:towns"));
+        assertEquals(markerSet, BridgeCommands.resolveLinkedMarkerSet(
+                config, LINKED_GROUP, List.of(markerSet), "name:id:towns"));
+        assertEquals("name:id:towns", BridgeCommands.markerSetNameArgument("id:towns"));
+        assertEquals("name:name:towns", BridgeCommands.markerSetNameArgument("name:towns"));
+        var suggestions = BridgeCommands.suggest(List.of("name:id:towns"),
+                new SuggestionsBuilder("id", 0)).get();
+        assertEquals(List.of("name:id:towns"), suggestions.getList().stream()
+                .map(suggestion -> suggestion.getText()).toList());
+    }
+
+    @Test
     void quotesTabSuggestionsContainingSpaces() throws Exception {
         var suggestions = BridgeCommands.suggest(List.of("Global Towns", "Shops"),
                 new SuggestionsBuilder("", 0)).get();
@@ -106,5 +123,7 @@ class BridgeCommandsTest {
         assertEquals(List.of("uuid:" + LINKED_GROUP), BridgeCommands.linkedGroupArguments(config, List.of()));
         assertEquals(List.of("removed-set"),
                 BridgeCommands.linkedMarkerSetNames(config, LINKED_GROUP, List.of()));
+        assertEquals(List.of("id:removed-set"),
+                BridgeCommands.linkedMarkerSetArguments(config, LINKED_GROUP, List.of()));
     }
 }
