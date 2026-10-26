@@ -28,6 +28,7 @@ public final class Jm2BmMod {
     private final JourneyMapAdapter journeyMap = new JourneyMapAdapter();
     private final BlueMapAdapter blueMap = new BlueMapAdapter(LOGGER);
     private final AtomicBoolean blueMapPreviouslyEnabled = new AtomicBoolean();
+    private final AtomicBoolean blueMapListenersRegistered = new AtomicBoolean();
     private ConfigManager configManager;
     private SyncCoordinator coordinator;
     private Consumer<BlueMapAPI> blueMapEnableListener;
@@ -66,8 +67,7 @@ public final class Jm2BmMod {
             }
         };
         blueMapDisableListener = blueMap::disconnect;
-        BlueMapAPI.onEnable(blueMapEnableListener);
-        BlueMapAPI.onDisable(blueMapDisableListener);
+        registerBlueMapListeners();
 
         LOGGER.info("[Jm2Bm] Initialized with {} mapping(s)", initialConfig.mappings().size());
     }
@@ -79,6 +79,8 @@ public final class Jm2BmMod {
 
     public static void onServerStarted(MinecraftServer server) {
         Jm2BmMod mod = requireInstance();
+        mod.registerBlueMapListeners();
+        JourneyMapServerPlugin.registerListeners();
         mod.coordinator.setServer(server);
         if (mod.configManager.active().syncOnStartup()) mod.coordinator.trigger("server startup");
     }
@@ -91,8 +93,8 @@ public final class Jm2BmMod {
     public static void onServerStopped() {
         Jm2BmMod mod = instance;
         if (mod == null) return;
-        BlueMapAPI.unregisterListener(mod.blueMapEnableListener);
-        BlueMapAPI.unregisterListener(mod.blueMapDisableListener);
+        mod.unregisterBlueMapListeners();
+        JourneyMapServerPlugin.unregisterListeners();
     }
 
     public static void onJourneyMapReady(IServerAPI api) {
@@ -118,6 +120,18 @@ public final class Jm2BmMod {
     public static boolean blueMapConnected() {
         Jm2BmMod mod = instance;
         return mod != null && mod.blueMap.isConnected();
+    }
+
+    private void registerBlueMapListeners() {
+        if (!blueMapListenersRegistered.compareAndSet(false, true)) return;
+        BlueMapAPI.onEnable(blueMapEnableListener);
+        BlueMapAPI.onDisable(blueMapDisableListener);
+    }
+
+    private void unregisterBlueMapListeners() {
+        if (!blueMapListenersRegistered.compareAndSet(true, false)) return;
+        BlueMapAPI.unregisterListener(blueMapEnableListener);
+        BlueMapAPI.unregisterListener(blueMapDisableListener);
     }
 
     private static Jm2BmMod requireInstance() {
