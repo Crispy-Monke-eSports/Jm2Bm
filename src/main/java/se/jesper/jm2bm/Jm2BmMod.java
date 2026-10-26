@@ -60,8 +60,8 @@ public final class Jm2BmMod {
         blueMapEnableListener = api -> {
             blueMap.connect(api);
             boolean reload = blueMapPreviouslyEnabled.getAndSet(true);
-            coordinator.resumeDeferred("BlueMap became available after a deferred event");
-            if (reload || configManager.active().syncOnStartup()) {
+            boolean resumed = coordinator.resumeDeferred("BlueMap became available after a deferred event");
+            if (!resumed && (reload || configManager.active().syncOnStartup())) {
                 coordinator.trigger(reload ? "BlueMap re-enabled" : "BlueMap enabled");
             }
         };
@@ -99,8 +99,10 @@ public final class Jm2BmMod {
         Jm2BmMod mod = instance;
         if (mod == null) return;
         mod.journeyMap.connect(api);
-        mod.coordinator.resumeDeferred("JourneyMap became available after a deferred event");
-        if (mod.configManager.active().syncOnStartup()) mod.coordinator.trigger("JourneyMap ready");
+        boolean resumed = mod.coordinator.resumeDeferred("JourneyMap became available after a deferred event");
+        if (!resumed && mod.configManager.active().syncOnStartup()) {
+            mod.coordinator.trigger("JourneyMap ready");
+        }
     }
 
     public static void onJourneyMapChanged() {

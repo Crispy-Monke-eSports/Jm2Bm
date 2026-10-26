@@ -61,8 +61,10 @@ public final class SyncCoordinator {
         return status;
     }
 
-    public void resumeDeferred(String reason) {
-        if (dependencyDeferred.getAndSet(false)) trigger(reason);
+    public boolean resumeDeferred(String reason) {
+        boolean resumed = dependencyDeferred.getAndSet(false);
+        if (resumed) trigger(reason);
+        return resumed;
     }
 
     private void scheduleIfPossible() {

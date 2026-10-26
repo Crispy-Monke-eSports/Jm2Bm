@@ -14,6 +14,11 @@ All notable changes to Jm2Bm will be documented here. The project follows
   plus `/jm2bm list` for all active links.
 - Immediate, atomic persistence of command changes to UUID-based `config.yaml`.
 
+### Fixed
+
+- JourneyMap built-in groups with textual IDs no longer abort synchronization or TAB completion.
+- Dependency-ready startup events no longer queue the same synchronization twice.
+
 ## 1.0.0 - 2026-10-26
 
 ### Added

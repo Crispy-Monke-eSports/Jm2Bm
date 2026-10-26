@@ -34,7 +34,8 @@ public final class JourneyMapAdapter {
             Set<UUID> ids = new HashSet<>();
             for (WaypointGroup group : groups) {
                 if (group == null) throw new SnapshotException("JourneyMap returned an incomplete global group");
-                UUID id = parseUuid(group.getGuid(), "global group GUID");
+                UUID id = parseSelectableGroupUuid(group.getGuid());
+                if (id == null) continue;
                 String name = requireText(group.getName(), "global group name");
                 if (!ids.add(id)) throw new SnapshotException("JourneyMap returned duplicate global group " + id);
                 result.add(new GroupRef(id, name));
@@ -63,7 +64,8 @@ public final class JourneyMapAdapter {
                 if (group == null || group.getGuid() == null) {
                     throw new SnapshotException("JourneyMap returned an incomplete global group");
                 }
-                UUID id = parseUuid(group.getGuid(), "global group GUID");
+                UUID id = parseSelectableGroupUuid(group.getGuid());
+                if (id == null) continue;
                 if (!presentGroups.add(id)) {
                     throw new SnapshotException("JourneyMap returned duplicate global group " + id);
                 }
@@ -125,6 +127,17 @@ public final class JourneyMapAdapter {
             return UUID.fromString(requireText(value, field));
         } catch (IllegalArgumentException e) {
             throw new SnapshotException("Invalid " + field + ": " + value, e);
+        }
+    }
+
+    static UUID parseSelectableGroupUuid(String value) throws SnapshotException {
+        String guid = requireText(value, "global group GUID");
+        try {
+            return UUID.fromString(guid);
+        } catch (IllegalArgumentException ignored) {
+            // JourneyMap exposes built-in groups such as "journeymap_global_default" alongside
+            // administrator-created UUID groups. Only UUID groups can be stored in Jm2Bm config.
+            return null;
         }
     }
 
