@@ -7,8 +7,12 @@ import org.junit.jupiter.api.Test;
 import se.jesper.jm2bm.bluemap.BlueMapAdapter;
 import se.jesper.jm2bm.config.BridgeConfig;
 import se.jesper.jm2bm.journeymap.JourneyMapAdapter;
+import se.jesper.jm2bm.sync.SyncStatus;
 
+import java.time.Instant;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -166,6 +170,35 @@ class BridgeCommandsTest {
         assertTrue(BridgeCommands.hasLink(config, LINKED_GROUP, "towns"));
         assertFalse(BridgeCommands.hasLink(config, LINKED_GROUP, "shops"));
         assertFalse(BridgeCommands.hasLink(config, OTHER_GROUP, "towns"));
+    }
+
+    @Test
+    void hidesRedundantStatusMessagesButKeepsUsefulDetails() {
+        SyncStatus ok = syncStatus(true, "OK");
+        SyncStatus failed = syncStatus(false, "BlueMap is unavailable");
+        SyncStatus missing = syncStatus(false, "Completed with missing marker sets: farms");
+
+        assertFalse(BridgeCommands.shouldShowStatusMessage(ok, 0));
+        assertTrue(BridgeCommands.shouldShowStatusMessage(failed, 0));
+        assertFalse(BridgeCommands.shouldShowStatusMessage(missing, 1));
+    }
+
+    @Test
+    void reportsTheEffectiveIconsCurrentlyUsedByAMarkerSet() {
+        BridgeConfig inherited = new BridgeConfig(true, "default.svg", List.of(
+                new BridgeConfig.Mapping(LINKED_GROUP, "farms", null)));
+        BridgeConfig mixed = new BridgeConfig(true, "default.svg", List.of(
+                new BridgeConfig.Mapping(LINKED_GROUP, "farms", "base.png"),
+                new BridgeConfig.Mapping(OTHER_GROUP, "farms", null)));
+
+        assertEquals(Set.of("default.svg"), BridgeCommands.effectiveIcons(inherited, "farms"));
+        assertEquals(Set.of("base.png", "default.svg"), BridgeCommands.effectiveIcons(mixed, "farms"));
+        assertEquals(Set.of(), BridgeCommands.effectiveIcons(mixed, "cities"));
+    }
+
+    private static SyncStatus syncStatus(boolean success, String message) {
+        return new SyncStatus(Instant.parse("2026-10-27T17:51:37Z"), success, message,
+                0, 0, 0, 1, 1, Map.of("world/Farmar", 1), Set.of(), Set.of());
     }
 
     private static void assertEntireStringArgument(String argument) throws Exception {

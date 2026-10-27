@@ -58,13 +58,15 @@ GUID is used as the BlueMap marker ID.
   and TAB completes available groups, marker sets, and icons.
 - `/jm2bm link <journeymap-global-group> <bluemap-marker-set>` links a group and set by their
   friendly display names. TAB completion lists all live JourneyMap global groups and BlueMap sets.
+  Omitting the marker-set argument reports the group's current links without changing them.
   If the selected set already contains markers, the command asks whether to clear it and continue
   or cancel. This safeguard applies to the in-game command, not mappings entered in `config.yaml`.
 - `/jm2bm unlink <journeymap-global-group> <bluemap-marker-set>` removes a link. TAB completion
   only lists linked groups, then only sets linked to the selected group.
 - `/jm2bm icon <bluemap-marker-set> <icon-file>` assigns an existing PNG/SVG from
   `config/jm2bm/icons/` to every active link targeting that set. Both arguments support TAB
-  completion, and the change is saved and reconciled immediately.
+  completion, and the change is saved and reconciled immediately. Omitting the icon argument
+  reports the icon currently in use.
 - `/jm2bm list` lists every active link using friendly names, with stored identifiers as fallback.
 - `/jm2bm reload` validates and activates `config.yaml`, republishes changed icons, reconciles all
   destinations, and cleans a marker set once when its final mapping was removed.

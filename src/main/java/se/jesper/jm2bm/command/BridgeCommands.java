@@ -48,6 +48,8 @@ public final class BridgeCommands {
                 .then(Commands.literal("link")
                         .then(Commands.argument("journeymap-global-group", StringArgumentType.string())
                                 .suggests((context, builder) -> suggestGroups(journeyMap, builder))
+                                .executes(context -> showLinksForGroup(
+                                        context, configManager, journeyMap, blueMap))
                                 .then(Commands.argument("bluemap-marker-set", StringArgumentType.string())
                                         .suggests((context, builder) -> suggestMarkerSets(blueMap, builder))
                                         .executes(context -> changeLink(context, configManager, coordinator,
@@ -72,6 +74,8 @@ public final class BridgeCommands {
                         .then(Commands.argument("bluemap-marker-set", StringArgumentType.string())
                                 .suggests((context, builder) -> suggestManagedMarkerSets(
                                         configManager, blueMap, builder))
+                                .executes(context -> showIcon(
+                                        context, configManager, journeyMap, blueMap))
                                 .then(Commands.argument("icon", StringArgumentType.string())
                                         .suggests((context, builder) -> suggestIcons(configManager, builder))
                                         .executes(context -> changeIcon(
@@ -129,9 +133,9 @@ public final class BridgeCommands {
                     coordinator.trigger("command refreshed externally changed config",
                             result.removedMarkerSets());
                 }
-                context.getSource().sendFailure(error("'" + group.name() + "' and '"
-                        + markerSet.label() + "' are " + (link ? "already linked." : "not linked.")));
-                return 0;
+                sendNoChanges(context.getSource(), "'" + group.name() + "' and '"
+                        + markerSet.label() + "' are " + (link ? "already linked." : "not linked."));
+                return 1;
             }
             coordinator.trigger("command " + (link ? "link" : "unlink"), result.removedMarkerSets());
             sendSuccess(context.getSource(), link ? "Link created" : "Link removed");
@@ -187,9 +191,9 @@ public final class BridgeCommands {
                     coordinator.trigger("command refreshed externally changed config",
                             result.removedMarkerSets());
                 }
-                context.getSource().sendFailure(error("'" + markerSet.label()
-                        + "' already uses icon '" + icon + "'."));
-                return 0;
+                sendNoChanges(context.getSource(), "'" + markerSet.label()
+                        + "' already uses icon '" + icon + "'.");
+                return 1;
             }
             coordinator.trigger("command icon", result.removedMarkerSets());
             long links = result.current().mappings().stream()
@@ -203,6 +207,77 @@ public final class BridgeCommands {
             context.getSource().sendFailure(error(e.getMessage()));
             return 0;
         }
+    }
+
+    private static int showIcon(CommandContext<CommandSourceStack> context, ConfigManager configManager,
+            JourneyMapAdapter journeyMap, BlueMapAdapter blueMap) {
+        String markerSetInput = StringArgumentType.getString(context, "bluemap-marker-set");
+        try {
+            BridgeConfig config = configManager.active();
+            BlueMapAdapter.MarkerSetRef markerSet = resolveManagedMarkerSet(
+                    config, blueMap.markerSets(), markerSetInput);
+            Set<String> icons = effectiveIcons(config, markerSet.id());
+            sendNotice(context.getSource(), "Current icon", ChatFormatting.AQUA);
+            if (icons.size() == 1) {
+                sendQueryValue(context.getSource(), markerSet.label(), icons.iterator().next());
+                return 1;
+            }
+
+            sendWarning(context.getSource(), "Icons differ between links targeting " + markerSet.label() + ".");
+            List<JourneyMapAdapter.GroupRef> groups = availableGroups(journeyMap);
+            config.mappings().stream()
+                    .filter(mapping -> mapping.blueMapMarkerSet().equals(markerSet.id()))
+                    .forEach(mapping -> {
+                        String groupName = groups.stream()
+                                .filter(group -> group.id().equals(mapping.journeyMapGroupUuid()))
+                                .map(JourneyMapAdapter.GroupRef::name)
+                                .findFirst().orElse(mapping.journeyMapGroupUuid().toString());
+                        String icon = mapping.icon() == null ? config.defaultIcon() : mapping.icon();
+                        sendQueryValue(context.getSource(), groupName, icon);
+                    });
+            return 1;
+        } catch (IOException | IllegalArgumentException e) {
+            context.getSource().sendFailure(error(e.getMessage()));
+            return 0;
+        }
+    }
+
+    private static int showLinksForGroup(CommandContext<CommandSourceStack> context,
+            ConfigManager configManager, JourneyMapAdapter journeyMap, BlueMapAdapter blueMap) {
+        String groupInput = StringArgumentType.getString(context, "journeymap-global-group");
+        try {
+            JourneyMapAdapter.GroupRef group = resolveGroup(journeyMap.groups(), groupInput);
+            BridgeConfig config = configManager.active();
+            List<BlueMapAdapter.MarkerSetRef> markerSets = blueMap.markerSets();
+            List<BridgeConfig.Mapping> links = config.mappings().stream()
+                    .filter(mapping -> mapping.journeyMapGroupUuid().equals(group.id())).toList();
+
+            sendNotice(context.getSource(), "Current links", ChatFormatting.AQUA);
+            if (links.isEmpty()) {
+                sendDetail(context.getSource(), group.name() + " is not linked to any BlueMap marker set.");
+                return 1;
+            }
+            for (BridgeConfig.Mapping link : links) {
+                String setName = markerSets.stream()
+                        .filter(set -> set.id().equals(link.blueMapMarkerSet()))
+                        .map(BlueMapAdapter.MarkerSetRef::label)
+                        .findFirst().orElse(link.blueMapMarkerSet());
+                sendQueryValue(context.getSource(), group.name(), setName);
+            }
+            return links.size();
+        } catch (SnapshotException | IOException | IllegalArgumentException e) {
+            context.getSource().sendFailure(error(e.getMessage()));
+            return 0;
+        }
+    }
+
+    static Set<String> effectiveIcons(BridgeConfig config, String markerSetId) {
+        Set<String> icons = new LinkedHashSet<>();
+        config.mappings().stream()
+                .filter(mapping -> mapping.blueMapMarkerSet().equals(markerSetId))
+                .map(mapping -> mapping.icon() == null ? config.defaultIcon() : mapping.icon())
+                .forEach(icons::add);
+        return Set.copyOf(icons);
     }
 
     static JourneyMapAdapter.GroupRef resolveGroup(List<JourneyMapAdapter.GroupRef> groups, String input) {
@@ -650,8 +725,9 @@ public final class BridgeCommands {
         return 1;
     }
 
-    private static boolean shouldShowStatusMessage(SyncStatus status, int warningCount) {
+    static boolean shouldShowStatusMessage(SyncStatus status, int warningCount) {
         if (status.message() == null || status.message().isBlank()) return false;
+        if (status.message().trim().equalsIgnoreCase("OK")) return false;
         return warningCount == 0 || !status.message().startsWith("Completed with missing ");
     }
 
@@ -672,6 +748,11 @@ public final class BridgeCommands {
 
     private static void sendNotice(CommandSourceStack source, String message, ChatFormatting color) {
         source.sendSuccess(() -> prefix().append(Component.literal(message).withStyle(color)), false);
+    }
+
+    private static void sendNoChanges(CommandSourceStack source, String detail) {
+        sendNotice(source, "No changes needed", ChatFormatting.YELLOW);
+        sendDetail(source, detail);
     }
 
     private static void sendHeader(CommandSourceStack source, String title) {
@@ -702,6 +783,13 @@ public final class BridgeCommands {
         source.sendSuccess(() -> line, false);
     }
 
+    private static void sendQueryValue(CommandSourceStack source, String label, String value) {
+        Component line = Component.literal("  " + label).withStyle(ChatFormatting.WHITE)
+                .append(Component.literal("  →  ").withStyle(ChatFormatting.DARK_GRAY))
+                .append(Component.literal(value).withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD));
+        source.sendSuccess(() -> line, false);
+    }
+
     private static void sendConnection(CommandSourceStack source, String label, boolean connected) {
         Component line = Component.literal("  " + label + ": ").withStyle(ChatFormatting.GRAY)
                 .append(Component.literal(connected ? "● Connected" : "● Disconnected")
@@ -724,8 +812,9 @@ public final class BridgeCommands {
     }
 
     private static void sendCommand(CommandSourceStack source, String command, String description) {
+        String label = command.stripTrailing();
         Component line = Component.empty()
-                .append(Component.literal("  " + command).withStyle(style -> style
+                .append(Component.literal("  " + label).withStyle(style -> style
                         .withColor(ChatFormatting.AQUA).withUnderlined(true)
                         .withClickEvent(new ClickEvent.SuggestCommand(command))))
                 .append(Component.literal(" — " + description).withStyle(ChatFormatting.GRAY));

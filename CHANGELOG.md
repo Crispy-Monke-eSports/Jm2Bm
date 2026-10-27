@@ -5,13 +5,20 @@ All notable changes to Jm2Bm will be documented here. The project follows
 
 ## Unreleased
 
+### Changed
+
+- Idempotent `link`, `unlink`, and `icon` commands report a neutral no-change result instead of an error.
+
 ### Added
 
 - `/jm2bm icon <marker-set> <icon-file>` assigns an existing configured icon in game.
+- `/jm2bm icon <marker-set>` and `/jm2bm link <group>` query the active icon and links.
 - Structured, color-coded command output and clickable `/jm2bm help` guidance.
 
 ### Fixed
 
+- Clickable help labels no longer underline the trailing argument-space inserted into chat.
+- Successful status output no longer repeats `OK` on a second line.
 - Confirmation links quote prefixed UUID and marker-set identifiers so Brigadier accepts them.
 - Marker sets present on only some BlueMap maps no longer produce false missing-set errors.
 

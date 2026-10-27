@@ -249,6 +249,8 @@ reconcileAll():
 
 ### `/jm2bm link <journeymap-global-group> <bluemap-marker-set>`
 
+- Utelämnas marker-setet visar `/jm2bm link <journeymap-global-group>` gruppens nuvarande länkar
+  utan att ändra konfigurationen. Flera länkar visas var för sig.
 - TAB föreslår friendly names för alla live globala JourneyMap-grupper och BlueMap Marker Sets.
 - Namnen löses till gruppens UUID och setets interna ID innan mappningen sparas atomiskt direkt i `config.yaml`.
 - Namn med mellanslag citeras av förslagsmekanismen. Tvetydiga namn avvisas i stället för att gissas.
@@ -264,6 +266,8 @@ reconcileAll():
 
 ### `/jm2bm icon <bluemap-marker-set> <icon-file>`
 
+- Utelämnas ikonfilen visar `/jm2bm icon <bluemap-marker-set>` den effektiva ikon som används nu
+  utan att ändra konfigurationen. Om YAML anger olika ikoner per länk visas varje avvikelse.
 - TAB föreslår endast länkade BlueMap-set och befintliga PNG/SVG-filer under `config/jm2bm/icons/`.
 - Ikonen sätts på samtliga gruppmappningar som pekar på marker-setet.
 - Filen måste finnas och sökvägen valideras innan ändringen sparas atomiskt och en avstämning köas.
