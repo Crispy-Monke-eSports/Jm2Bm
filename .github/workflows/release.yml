@@ -8,6 +8,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: release-${{ github.ref_name }}
+  cancel-in-progress: false
+
 jobs:
   release:
     name: Build and publish release
@@ -17,9 +21,10 @@ jobs:
       contents: write
 
     steps:
-      - name: Check out repository
+      - name: Check out release tag
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
+          ref: ${{ github.ref_name }}
           fetch-depth: 0
           persist-credentials: false
 
@@ -36,17 +41,26 @@ jobs:
 
       - name: Read and validate version
         id: version
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
         shell: bash
         run: |
-          version="${GITHUB_REF_NAME#v}"
+          version="${RELEASE_TAG#v}"
           if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "Invalid release tag: $GITHUB_REF_NAME" >&2
+            echo "Invalid release tag: $RELEASE_TAG" >&2
             exit 1
           fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
-      - name: Build and test release
-        run: ./gradlew --no-daemon clean build -Pmod_version=${{ steps.version.outputs.version }}
+      - name: Run all tests and verification checks
+        env:
+          MOD_VERSION: ${{ steps.version.outputs.version }}
+        run: ./gradlew --no-daemon clean check -Pmod_version="$MOD_VERSION"
+
+      - name: Build release artifacts
+        env:
+          MOD_VERSION: ${{ steps.version.outputs.version }}
+        run: ./gradlew --no-daemon jar sourcesJar -Pmod_version="$MOD_VERSION"
 
       - name: Create checksums
         working-directory: build/libs
@@ -55,15 +69,67 @@ jobs:
       - name: Publish GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
         shell: bash
         run: |
-          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
-            gh release upload "$GITHUB_REF_NAME" build/libs/*.jar build/libs/SHA256SUMS --clobber
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" build/libs/*.jar build/libs/SHA256SUMS --clobber
           else
-            gh release create "$GITHUB_REF_NAME" \
+            gh release create "$RELEASE_TAG" \
               build/libs/*.jar \
               build/libs/SHA256SUMS \
               --verify-tag \
               --generate-notes \
               --title "Jm2Bm ${{ steps.version.outputs.version }}"
           fi
+
+      - name: Read GitHub Release metadata
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        shell: bash
+        run: |
+          gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_TAG}" > "$RUNNER_TEMP/github-release.json"
+          jq -r '.body // ""' "$RUNNER_TEMP/github-release.json" > .github-release-changelog.md
+
+          version_type="release"
+          if [[ "$(jq -r '.prerelease' "$RUNNER_TEMP/github-release.json")" == "true" ]]; then
+            version_type="beta"
+          fi
+          echo "version_type=$version_type" >> "$GITHUB_OUTPUT"
+
+      - name: Validate CurseForge configuration
+        env:
+          CURSEFORGE_TOKEN: ${{ secrets.CURSEFORGE_TOKEN }}
+          CURSEFORGE_PROJECT_ID: ${{ vars.CURSEFORGE_PROJECT_ID }}
+        shell: bash
+        run: |
+          if [[ -z "$CURSEFORGE_TOKEN" ]]; then
+            echo "Missing repository secret CURSEFORGE_TOKEN" >&2
+            exit 1
+          fi
+          if [[ ! "$CURSEFORGE_PROJECT_ID" =~ ^[0-9]+$ ]]; then
+            echo "Repository variable CURSEFORGE_PROJECT_ID must be a numeric CurseForge project ID" >&2
+            exit 1
+          fi
+
+      - name: Publish CurseForge release
+        uses: Kira-NT/mc-publish@c23376546a97f5ba7984e94445da359459b14419 # v3
+        with:
+          curseforge-id: ${{ vars.CURSEFORGE_PROJECT_ID }}
+          curseforge-token: ${{ secrets.CURSEFORGE_TOKEN }}
+          files: build/libs/jm2bm-${{ steps.version.outputs.version }}.jar
+          name: Jm2Bm ${{ steps.version.outputs.version }}
+          version: ${{ steps.version.outputs.version }}
+          version-type: ${{ steps.release.outputs.version_type }}
+          changelog-file: .github-release-changelog.md
+          loaders: |
+            fabric
+            neoforge
+          environment: server
+          game-versions: "26.3"
+          game-version-filter: none
+          dependencies: |
+            journeymap(required)
+            bluemap(required)

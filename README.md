@@ -55,6 +55,8 @@ GUID is used as the BlueMap marker ID.
 
 - `/jm2bm link <journeymap-global-group> <bluemap-marker-set>` links a group and set by their
   friendly display names. TAB completion lists all live JourneyMap global groups and BlueMap sets.
+  If the selected set already contains markers, the command asks whether to clear it and continue
+  or cancel. This safeguard applies to the in-game command, not mappings entered in `config.yaml`.
 - `/jm2bm unlink <journeymap-global-group> <bluemap-marker-set>` removes a link. TAB completion
   only lists linked groups, then only sets linked to the selected group.
 - `/jm2bm list` lists every active link using friendly names, with stored identifiers as fallback.
@@ -99,5 +101,9 @@ for the development and safety requirements and [SECURITY.md](SECURITY.md) for p
 reporting guidance.
 
 Maintainers publish a release by pushing a semantic-version tag such as `v1.0.1`. The release
-workflow derives the mod version from the tag, runs the full build, and uploads the binary JAR,
-sources JAR, and SHA-256 checksums to GitHub Releases.
+workflow derives the mod version from the tag and requires every test and verification check to
+pass before publishing to either destination. It then uploads the binary JAR, sources JAR, and
+SHA-256 checksums to GitHub Releases, followed by the universal binary JAR to CurseForge as a
+Fabric/NeoForge file for Minecraft 26.3. Configure the repository secret `CURSEFORGE_TOKEN` with a
+CurseForge author API token and the repository variable `CURSEFORGE_PROJECT_ID` with the project's
+numeric ID before publishing a release.

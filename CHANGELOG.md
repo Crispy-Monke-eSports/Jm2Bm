@@ -5,8 +5,12 @@ All notable changes to Jm2Bm will be documented here. The project follows
 
 ## Unreleased
 
+## 1.1.0 - 2026-10-27
+
 ### Added
 
+- Automatic CurseForge publishing through `Kira-NT/mc-publish` for every GitHub Release.
+- An in-game confirmation prompt before linking a BlueMap marker set that already contains markers.
 - One universal server JAR for both Fabric 26.3 and NeoForge 26.3.
 - Loader-specific lifecycle and command entrypoints around the shared synchronization core.
 - Production server smoke testing for both loaders with JourneyMap 6.0.10 and BlueMap 5.29.
@@ -36,5 +40,6 @@ All notable changes to Jm2Bm will be documented here. The project follows
 - `/jm2bm reload` and `/jm2bm status` administrator commands.
 - Configuration validation and protection against destructive synchronization on incomplete data.
 
-[Unreleased changes](https://github.com/Crispy-Monke-eSports/Jm2Bm/compare/v1.0.0...HEAD) ·
+[Unreleased changes](https://github.com/Crispy-Monke-eSports/Jm2Bm/compare/v1.1.0...HEAD) ·
+[1.1.0 release](https://github.com/Crispy-Monke-eSports/Jm2Bm/releases/tag/v1.1.0) ·
 [1.0.0 release](https://github.com/Crispy-Monke-eSports/Jm2Bm/releases/tag/v1.0.0)

@@ -10,7 +10,9 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class BridgeCommandsTest {
     private static final UUID LINKED_GROUP = UUID.fromString("550e8400-e29b-41d4-a716-446655440000");
@@ -125,5 +127,16 @@ class BridgeCommandsTest {
                 BridgeCommands.linkedMarkerSetNames(config, LINKED_GROUP, List.of()));
         assertEquals(List.of("id:removed-set"),
                 BridgeCommands.linkedMarkerSetArguments(config, LINKED_GROUP, List.of()));
+    }
+
+    @Test
+    void detectsOnlyTheExactExistingLinkWhenDecidingWhetherToPrompt() {
+        BridgeConfig config = new BridgeConfig(true, "default.svg", List.of(
+                new BridgeConfig.Mapping(LINKED_GROUP, "towns", null),
+                new BridgeConfig.Mapping(OTHER_GROUP, "shops", null)));
+
+        assertTrue(BridgeCommands.hasLink(config, LINKED_GROUP, "towns"));
+        assertFalse(BridgeCommands.hasLink(config, LINKED_GROUP, "shops"));
+        assertFalse(BridgeCommands.hasLink(config, OTHER_GROUP, "towns"));
     }
 }

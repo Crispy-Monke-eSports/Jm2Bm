@@ -7,6 +7,8 @@ import com.mojang.brigadier.suggestion.Suggestions;
 import com.mojang.brigadier.suggestion.SuggestionsBuilder;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
+import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.permissions.Permissions;
 import se.jesper.jm2bm.bluemap.BlueMapAdapter;
@@ -46,7 +48,15 @@ public final class BridgeCommands {
                                 .then(Commands.argument("bluemap-marker-set", StringArgumentType.string())
                                         .suggests((context, builder) -> suggestMarkerSets(blueMap, builder))
                                         .executes(context -> changeLink(context, configManager, coordinator,
-                                                journeyMap, blueMap, true)))))
+                                                journeyMap, blueMap, true, false))
+                                        .then(Commands.literal("confirm")
+                                                .executes(context -> changeLink(context, configManager, coordinator,
+                                                        journeyMap, blueMap, true, true)))))
+                        .then(Commands.literal("cancel").executes(context -> {
+                            context.getSource().sendSuccess(() -> Component.literal(
+                                    "Jm2Bm: linking cancelled."), false);
+                            return 1;
+                        })))
                 .then(Commands.literal("unlink")
                         .then(Commands.argument("journeymap-global-group", StringArgumentType.string())
                                 .suggests((context, builder) -> suggestLinkedGroups(
@@ -55,7 +65,7 @@ public final class BridgeCommands {
                                         .suggests((context, builder) -> suggestLinkedMarkerSets(
                                                 context, configManager, journeyMap, blueMap, builder))
                                         .executes(context -> changeLink(context, configManager, coordinator,
-                                                journeyMap, blueMap, false)))))
+                                                journeyMap, blueMap, false, false)))))
                 .then(Commands.literal("list").executes(context -> listLinks(
                         context, configManager, journeyMap, blueMap)))
                 .then(Commands.literal("reload").executes(context -> {
@@ -78,7 +88,7 @@ public final class BridgeCommands {
 
     private static int changeLink(CommandContext<CommandSourceStack> context, ConfigManager configManager,
                                   SyncCoordinator coordinator, JourneyMapAdapter journeyMap,
-                                  BlueMapAdapter blueMap, boolean link) {
+                                  BlueMapAdapter blueMap, boolean link, boolean confirmed) {
         String groupInput = StringArgumentType.getString(context, "journeymap-global-group");
         String markerSetInput = StringArgumentType.getString(context, "bluemap-marker-set");
         try {
@@ -87,6 +97,14 @@ public final class BridgeCommands {
             if (link) {
                 group = resolveGroup(journeyMap.groups(), groupInput);
                 markerSet = resolveMarkerSet(blueMap.markerSets(), markerSetInput);
+                BridgeConfig configured = configManager.configured();
+                if (!confirmed && !hasLink(configured, group.id(), markerSet.id())) {
+                    int markerCount = blueMap.markerCount(markerSet.id());
+                    if (markerCount > 0) {
+                        askToClearOrCancel(context, group, markerSet, markerCount);
+                        return 0;
+                    }
+                }
             } else {
                 BridgeConfig configured = configManager.configured();
                 group = resolveLinkedGroup(configured, availableGroups(journeyMap), groupInput);
@@ -114,6 +132,28 @@ public final class BridgeCommands {
             context.getSource().sendFailure(Component.literal("Jm2Bm: " + e.getMessage()));
             return 0;
         }
+    }
+
+    static boolean hasLink(BridgeConfig config, UUID groupId, String markerSetId) {
+        return config.mappings().stream().anyMatch(mapping ->
+                mapping.journeyMapGroupUuid().equals(groupId)
+                        && mapping.blueMapMarkerSet().equals(markerSetId));
+    }
+
+    private static void askToClearOrCancel(CommandContext<CommandSourceStack> context,
+            JourneyMapAdapter.GroupRef group, BlueMapAdapter.MarkerSetRef markerSet, int markerCount) {
+        String confirmCommand = "/jm2bm link " + quoteArgument("uuid:" + group.id()) + " "
+                + quoteArgument("id:" + markerSet.id()) + " confirm";
+        Component prompt = Component.literal("Jm2Bm: '" + markerSet.label() + "' already contains "
+                        + markerCount + (markerCount == 1 ? " marker. " : " markers. "))
+                .append(Component.literal("[Clear and link]")
+                        .withStyle(style -> style.withColor(ChatFormatting.RED).withUnderlined(true)
+                                .withClickEvent(new ClickEvent.RunCommand(confirmCommand))))
+                .append(Component.literal(" "))
+                .append(Component.literal("[Cancel]")
+                        .withStyle(style -> style.withColor(ChatFormatting.GRAY).withUnderlined(true)
+                                .withClickEvent(new ClickEvent.RunCommand("/jm2bm link cancel"))));
+        context.getSource().sendSuccess(() -> prompt, false);
     }
 
     static JourneyMapAdapter.GroupRef resolveGroup(List<JourneyMapAdapter.GroupRef> groups, String input) {

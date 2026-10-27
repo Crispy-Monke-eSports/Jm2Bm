@@ -77,6 +77,31 @@ public final class BlueMapAdapter {
         return List.copyOf(result);
     }
 
+    public int markerCount(String markerSetId) throws IOException {
+        BlueMapAPI current = api;
+        if (current == null) throw new IOException("BlueMap API is not connected");
+        int count = 0;
+        try {
+            for (BlueMapMap map : current.getMaps()) {
+                if (map == null || map.getMarkerSets() == null) {
+                    throw new IOException("BlueMap returned an incomplete map");
+                }
+                MarkerSet markerSet = map.getMarkerSets().get(markerSetId);
+                if (markerSet != null) {
+                    if (markerSet.getMarkers() == null) {
+                        throw new IOException("BlueMap returned an incomplete marker set");
+                    }
+                    count += markerSet.getMarkers().size();
+                }
+            }
+        } catch (IOException e) {
+            throw e;
+        } catch (Throwable t) {
+            throw new IOException("Could not inspect BlueMap marker set: " + t.getMessage(), t);
+        }
+        return count;
+    }
+
     private static String requireText(String value, String field) throws IOException {
         if (value == null || value.isBlank()) throw new IOException("Missing " + field);
         return value;

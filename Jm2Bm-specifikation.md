@@ -247,6 +247,8 @@ reconcileAll():
 - Namnen löses till gruppens UUID och setets interna ID innan mappningen sparas atomiskt direkt i `config.yaml`.
 - Namn med mellanslag citeras av förslagsmekanismen. Tvetydiga namn avvisas i stället för att gissas.
 - En full avstämning köas direkt efter en lyckad länkning.
+- Om marker-setet redan innehåller markers frågar kommandot om setet ska tömmas och länkas, eller
+  om länkningen ska avbrytas. Kontrollen gäller bara ingame-kommandot, inte manuellt ifylld YAML.
 
 ### `/jm2bm unlink <journeymap-global-group> <bluemap-marker-set>`
 
