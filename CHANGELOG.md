@@ -5,6 +5,8 @@ All notable changes to Jm2Bm will be documented here. The project follows
 
 ## Unreleased
 
+## 1.1.1 - 2026-10-27
+
 ### Changed
 
 - Idempotent `link`, `unlink`, and `icon` commands report a neutral no-change result instead of an error.
@@ -57,6 +59,7 @@ All notable changes to Jm2Bm will be documented here. The project follows
 - `/jm2bm reload` and `/jm2bm status` administrator commands.
 - Configuration validation and protection against destructive synchronization on incomplete data.
 
-[Unreleased changes](https://github.com/Crispy-Monke-eSports/Jm2Bm/compare/v1.1.0...HEAD) ·
+[Unreleased changes](https://github.com/Crispy-Monke-eSports/Jm2Bm/compare/v1.1.1...HEAD) ·
+[1.1.1 release](https://github.com/Crispy-Monke-eSports/Jm2Bm/releases/tag/v1.1.1) ·
 [1.1.0 release](https://github.com/Crispy-Monke-eSports/Jm2Bm/releases/tag/v1.1.0) ·
 [1.0.0 release](https://github.com/Crispy-Monke-eSports/Jm2Bm/releases/tag/v1.0.0)
