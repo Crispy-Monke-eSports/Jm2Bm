@@ -1,5 +1,7 @@
 package se.jesper.jm2bm.command;
 
+import com.mojang.brigadier.StringReader;
+import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.suggestion.SuggestionsBuilder;
 import org.junit.jupiter.api.Test;
 import se.jesper.jm2bm.bluemap.BlueMapAdapter;
@@ -83,8 +85,19 @@ class BridgeCommandsTest {
         assertEquals("name:name:towns", BridgeCommands.markerSetNameArgument("name:towns"));
         var suggestions = BridgeCommands.suggest(List.of("name:id:towns"),
                 new SuggestionsBuilder("id", 0)).get();
-        assertEquals(List.of("name:id:towns"), suggestions.getList().stream()
+        assertEquals(List.of("\"name:id:towns\""), suggestions.getList().stream()
                 .map(suggestion -> suggestion.getText()).toList());
+    }
+
+    @Test
+    void quotesPrefixedIdentifiersSoBrigadierConsumesTheWholeArgument() throws Exception {
+        String group = BridgeCommands.quoteArgument("uuid:" + LINKED_GROUP);
+        String markerSet = BridgeCommands.quoteArgument("id:Farmar");
+
+        assertEquals("\"uuid:" + LINKED_GROUP + "\"", group);
+        assertEquals("\"id:Farmar\"", markerSet);
+        assertEntireStringArgument(group);
+        assertEntireStringArgument(markerSet);
     }
 
     @Test
@@ -130,6 +143,21 @@ class BridgeCommandsTest {
     }
 
     @Test
+    void resolvesAndSuggestsOnlyManagedMarkerSetsForIconCommand() {
+        BridgeConfig config = new BridgeConfig(true, "default.svg", List.of(
+                new BridgeConfig.Mapping(LINKED_GROUP, "farms", null)));
+        BlueMapAdapter.MarkerSetRef farms = new BlueMapAdapter.MarkerSetRef("farms", "Player farms");
+        BlueMapAdapter.MarkerSetRef cities = new BlueMapAdapter.MarkerSetRef("cities", "Cities");
+
+        assertEquals(farms, BridgeCommands.resolveManagedMarkerSet(
+                config, List.of(farms, cities), "Player farms"));
+        assertThrows(IllegalArgumentException.class, () -> BridgeCommands.resolveManagedMarkerSet(
+                config, List.of(farms, cities), "Cities"));
+        assertEquals(List.of("Player farms"),
+                BridgeCommands.managedMarkerSetArguments(config, List.of(farms, cities)));
+    }
+
+    @Test
     void detectsOnlyTheExactExistingLinkWhenDecidingWhetherToPrompt() {
         BridgeConfig config = new BridgeConfig(true, "default.svg", List.of(
                 new BridgeConfig.Mapping(LINKED_GROUP, "towns", null),
@@ -138,5 +166,11 @@ class BridgeCommandsTest {
         assertTrue(BridgeCommands.hasLink(config, LINKED_GROUP, "towns"));
         assertFalse(BridgeCommands.hasLink(config, LINKED_GROUP, "shops"));
         assertFalse(BridgeCommands.hasLink(config, OTHER_GROUP, "towns"));
+    }
+
+    private static void assertEntireStringArgument(String argument) throws Exception {
+        StringReader reader = new StringReader(argument);
+        StringArgumentType.string().parse(reader);
+        assertFalse(reader.canRead());
     }
 }

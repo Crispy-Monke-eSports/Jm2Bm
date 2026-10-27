@@ -10,12 +10,14 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ConfigManagerTest {
     private static final UUID GROUP = UUID.fromString("550e8400-e29b-41d4-a716-446655440000");
+    private static final UUID OTHER_GROUP = UUID.fromString("123e4567-e89b-42d3-a456-426614174000");
 
     @TempDir
     Path directory;
@@ -111,6 +113,51 @@ class ConfigManagerTest {
         assertTrue(result.changed());
         assertEquals(java.util.Set.of("towns"), result.removedMarkerSets());
         assertTrue(manager.reload().current().mappings().isEmpty());
+    }
+
+    @Test
+    void setsAnExistingIconOnEveryMappingForTheMarkerSet() throws Exception {
+        ConfigManager manager = manager();
+        manager.initialize();
+        manager.link(GROUP, "farms");
+        manager.link(OTHER_GROUP, "farms");
+        manager.link(GROUP, "cities");
+        Files.writeString(directory.resolve("icons/base.png"), "png");
+
+        ConfigManager.MutationResult result = manager.setIconForMarkerSet("farms", "base.png");
+
+        assertTrue(result.changed());
+        assertTrue(result.current().mappings().stream()
+                .filter(mapping -> mapping.blueMapMarkerSet().equals("farms"))
+                .allMatch(mapping -> mapping.icon().equals("base.png")));
+        assertNull(result.current().mappings().stream()
+                .filter(mapping -> mapping.blueMapMarkerSet().equals("cities"))
+                .findFirst().orElseThrow().icon());
+        assertTrue(Files.readString(directory.resolve("config.yaml")).contains("icon: base.png"));
+    }
+
+    @Test
+    void setIconRejectsMissingFilesWithoutChangingConfiguration() throws Exception {
+        ConfigManager manager = manager();
+        manager.initialize();
+        manager.link(GROUP, "farms");
+        String before = Files.readString(directory.resolve("config.yaml"));
+
+        assertThrows(ConfigException.class,
+                () -> manager.setIconForMarkerSet("farms", "missing.png"));
+        assertEquals(before, Files.readString(directory.resolve("config.yaml")));
+    }
+
+    @Test
+    void listsAvailablePngAndSvgIconsForSuggestions() throws Exception {
+        ConfigManager manager = manager();
+        manager.initialize();
+        Files.createDirectories(directory.resolve("icons/nested"));
+        Files.writeString(directory.resolve("icons/base.png"), "png");
+        Files.writeString(directory.resolve("icons/nested/town.svg"), "svg");
+        Files.writeString(directory.resolve("icons/ignored.txt"), "text");
+
+        assertEquals(java.util.List.of("base.png", "default.svg", "nested/town.svg"), manager.iconNames());
     }
 
     @Test

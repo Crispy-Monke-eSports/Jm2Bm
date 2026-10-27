@@ -5,6 +5,16 @@ All notable changes to Jm2Bm will be documented here. The project follows
 
 ## Unreleased
 
+### Added
+
+- `/jm2bm icon <marker-set> <icon-file>` assigns an existing configured icon in game.
+- Structured, color-coded command output and clickable `/jm2bm help` guidance.
+
+### Fixed
+
+- Confirmation links quote prefixed UUID and marker-set identifiers so Brigadier accepts them.
+- Marker sets present on only some BlueMap maps no longer produce false missing-set errors.
+
 ## 1.1.0 - 2026-10-27
 
 ### Added

@@ -125,20 +125,13 @@ public final class BlueMapAdapter {
 
         Counters total = new Counters();
         Map<String, Integer> markerCounts = new LinkedHashMap<>();
-        Set<String> missingMarkerSets = new HashSet<>();
         List<String> errors = new ArrayList<>();
         Collection<MapContext> maps = findMaps(server, current);
 
         for (MapContext context : maps) {
             for (String setId : targetSets) {
                 MarkerSet markerSet = context.map().getMarkerSets().get(setId);
-                if (markerSet == null) {
-                    String key = context.map().getId() + "/" + setId;
-                    missingMarkerSets.add(key);
-                    logger.error("[Jm2Bm] Marker set '{}' does not exist on BlueMap map '{}'",
-                            setId, context.map().getId());
-                    continue;
-                }
+                if (markerSet == null) continue;
                 try {
                     Map<String, DesiredMarker> desired = oneTimeCleanupSets.contains(setId)
                             && !config.markerSetIds().contains(setId)
@@ -154,6 +147,10 @@ public final class BlueMapAdapter {
                 }
             }
         }
+        Set<String> missingMarkerSets = missingMarkerSets(targetSets, maps.stream()
+                .map(context -> context.map().getMarkerSets().keySet()).toList());
+        missingMarkerSets.forEach(setId -> logger.error(
+                "[Jm2Bm] Marker set '{}' does not exist on any applicable BlueMap map", setId));
         boolean success = errors.isEmpty() && missingMarkerSets.isEmpty();
         String message = !errors.isEmpty()
                 ? "Partial failure: " + String.join("; ", errors)
@@ -168,6 +165,15 @@ public final class BlueMapAdapter {
 
     static boolean cleanupComplete(List<String> errors, Set<String> missingMarkerSets) {
         return errors.isEmpty() && missingMarkerSets.isEmpty();
+    }
+
+    static Set<String> missingMarkerSets(Set<String> targetSets,
+            Collection<? extends Set<String>> availableSetsByMap) {
+        Set<String> present = new HashSet<>();
+        availableSetsByMap.forEach(present::addAll);
+        Set<String> missing = new HashSet<>(targetSets);
+        missing.removeAll(present);
+        return Set.copyOf(missing);
     }
 
     private Collection<MapContext> findMaps(MinecraftServer server, BlueMapAPI api) {

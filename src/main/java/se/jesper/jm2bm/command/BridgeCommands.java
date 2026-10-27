@@ -10,6 +10,7 @@ import net.minecraft.commands.Commands;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.server.permissions.Permissions;
 import se.jesper.jm2bm.bluemap.BlueMapAdapter;
 import se.jesper.jm2bm.config.BridgeConfig;
@@ -42,6 +43,8 @@ public final class BridgeCommands {
                                 BlueMapAdapter blueMap) {
         dispatcher.register(Commands.literal("jm2bm")
                 .requires(source -> source.permissions().hasPermission(Permissions.COMMANDS_GAMEMASTER))
+                .executes(BridgeCommands::showHelp)
+                .then(Commands.literal("help").executes(BridgeCommands::showHelp))
                 .then(Commands.literal("link")
                         .then(Commands.argument("journeymap-global-group", StringArgumentType.string())
                                 .suggests((context, builder) -> suggestGroups(journeyMap, builder))
@@ -53,8 +56,7 @@ public final class BridgeCommands {
                                                 .executes(context -> changeLink(context, configManager, coordinator,
                                                         journeyMap, blueMap, true, true)))))
                         .then(Commands.literal("cancel").executes(context -> {
-                            context.getSource().sendSuccess(() -> Component.literal(
-                                    "Jm2Bm: linking cancelled."), false);
+                            sendNotice(context.getSource(), "Linking cancelled.", ChatFormatting.YELLOW);
                             return 1;
                         })))
                 .then(Commands.literal("unlink")
@@ -66,19 +68,27 @@ public final class BridgeCommands {
                                                 context, configManager, journeyMap, blueMap, builder))
                                         .executes(context -> changeLink(context, configManager, coordinator,
                                                 journeyMap, blueMap, false, false)))))
+                .then(Commands.literal("icon")
+                        .then(Commands.argument("bluemap-marker-set", StringArgumentType.string())
+                                .suggests((context, builder) -> suggestManagedMarkerSets(
+                                        configManager, blueMap, builder))
+                                .then(Commands.argument("icon", StringArgumentType.string())
+                                        .suggests((context, builder) -> suggestIcons(configManager, builder))
+                                        .executes(context -> changeIcon(
+                                                context, configManager, coordinator, blueMap)))))
                 .then(Commands.literal("list").executes(context -> listLinks(
                         context, configManager, journeyMap, blueMap)))
                 .then(Commands.literal("reload").executes(context -> {
                     try {
                         ConfigManager.ReloadResult result = configManager.reload();
                         coordinator.trigger("command reload", result.removedMarkerSets());
-                        context.getSource().sendSuccess(() -> Component.literal(
-                                "Jm2Bm: config loaded (" + result.current().mappings().size()
-                                        + " mappings); full reconciliation queued."), false);
+                        sendSuccess(context.getSource(), "Configuration reloaded");
+                        sendDetail(context.getSource(), result.current().mappings().size()
+                                + " mappings · full reconciliation queued");
                         return 1;
                     } catch (ConfigException e) {
-                        context.getSource().sendFailure(Component.literal(
-                                "Jm2Bm: config rejected; previous config remains active: " + e.getMessage()));
+                        context.getSource().sendFailure(error(
+                                "Config rejected; previous config remains active: " + e.getMessage()));
                         return 0;
                     }
                 }))
@@ -119,17 +129,17 @@ public final class BridgeCommands {
                     coordinator.trigger("command refreshed externally changed config",
                             result.removedMarkerSets());
                 }
-                context.getSource().sendFailure(Component.literal("Jm2Bm: '" + group.name() + "' and '"
+                context.getSource().sendFailure(error("'" + group.name() + "' and '"
                         + markerSet.label() + "' are " + (link ? "already linked." : "not linked.")));
                 return 0;
             }
             coordinator.trigger("command " + (link ? "link" : "unlink"), result.removedMarkerSets());
-            context.getSource().sendSuccess(() -> Component.literal("Jm2Bm: " + group.name() + " "
-                    + (link ? "linked to " : "unlinked from ") + markerSet.label()
-                    + "; config.yaml saved and reconciliation queued."), false);
+            sendSuccess(context.getSource(), link ? "Link created" : "Link removed");
+            sendDetail(context.getSource(), group.name() + (link ? "  →  " : "  ×  ") + markerSet.label());
+            sendDetail(context.getSource(), "config.yaml saved · reconciliation queued");
             return 1;
         } catch (ConfigException | SnapshotException | IOException | IllegalArgumentException e) {
-            context.getSource().sendFailure(Component.literal("Jm2Bm: " + e.getMessage()));
+            context.getSource().sendFailure(error(e.getMessage()));
             return 0;
         }
     }
@@ -144,16 +154,55 @@ public final class BridgeCommands {
             JourneyMapAdapter.GroupRef group, BlueMapAdapter.MarkerSetRef markerSet, int markerCount) {
         String confirmCommand = "/jm2bm link " + quoteArgument("uuid:" + group.id()) + " "
                 + quoteArgument("id:" + markerSet.id()) + " confirm";
-        Component prompt = Component.literal("Jm2Bm: '" + markerSet.label() + "' already contains "
-                        + markerCount + (markerCount == 1 ? " marker. " : " markers. "))
+        Component prompt = prefix()
+                .append(Component.literal("Action required").withStyle(ChatFormatting.YELLOW,
+                        ChatFormatting.BOLD));
+        Component explanation = Component.literal("  '" + markerSet.label() + "' contains "
+                        + markerCount + (markerCount == 1 ? " marker." : " markers."))
+                .withStyle(ChatFormatting.GRAY);
+        Component actions = Component.literal("  ")
                 .append(Component.literal("[Clear and link]")
                         .withStyle(style -> style.withColor(ChatFormatting.RED).withUnderlined(true)
                                 .withClickEvent(new ClickEvent.RunCommand(confirmCommand))))
                 .append(Component.literal(" "))
                 .append(Component.literal("[Cancel]")
-                        .withStyle(style -> style.withColor(ChatFormatting.GRAY).withUnderlined(true)
+                        .withStyle(style -> style.withColor(ChatFormatting.GREEN).withUnderlined(true)
                                 .withClickEvent(new ClickEvent.RunCommand("/jm2bm link cancel"))));
         context.getSource().sendSuccess(() -> prompt, false);
+        context.getSource().sendSuccess(() -> explanation, false);
+        context.getSource().sendSuccess(() -> actions, false);
+    }
+
+    private static int changeIcon(CommandContext<CommandSourceStack> context, ConfigManager configManager,
+            SyncCoordinator coordinator, BlueMapAdapter blueMap) {
+        String markerSetInput = StringArgumentType.getString(context, "bluemap-marker-set");
+        String icon = StringArgumentType.getString(context, "icon");
+        try {
+            BridgeConfig configured = configManager.configured();
+            BlueMapAdapter.MarkerSetRef markerSet = resolveManagedMarkerSet(
+                    configured, blueMap.markerSets(), markerSetInput);
+            ConfigManager.MutationResult result = configManager.setIconForMarkerSet(markerSet.id(), icon);
+            if (!result.changed()) {
+                if (result.activeConfigurationChanged()) {
+                    coordinator.trigger("command refreshed externally changed config",
+                            result.removedMarkerSets());
+                }
+                context.getSource().sendFailure(error("'" + markerSet.label()
+                        + "' already uses icon '" + icon + "'."));
+                return 0;
+            }
+            coordinator.trigger("command icon", result.removedMarkerSets());
+            long links = result.current().mappings().stream()
+                    .filter(mapping -> mapping.blueMapMarkerSet().equals(markerSet.id())).count();
+            sendSuccess(context.getSource(), "Icon updated");
+            sendDetail(context.getSource(), markerSet.label() + "  →  " + icon);
+            sendDetail(context.getSource(), links + (links == 1 ? " link updated" : " links updated")
+                    + " · config.yaml saved · reconciliation queued");
+            return 1;
+        } catch (ConfigException | IOException | IllegalArgumentException e) {
+            context.getSource().sendFailure(error(e.getMessage()));
+            return 0;
+        }
     }
 
     static JourneyMapAdapter.GroupRef resolveGroup(List<JourneyMapAdapter.GroupRef> groups, String input) {
@@ -289,6 +338,41 @@ public final class BridgeCommands {
                 "No marker set named '" + input + "' is linked to this group. Use TAB or id:<stored ID>.");
     }
 
+    static BlueMapAdapter.MarkerSetRef resolveManagedMarkerSet(BridgeConfig config,
+            List<BlueMapAdapter.MarkerSetRef> sets, String input) {
+        Set<String> managed = config.markerSetIds();
+        List<BlueMapAdapter.MarkerSetRef> available = sets.stream()
+                .filter(set -> managed.contains(set.id())).toList();
+        if (input.startsWith("name:")) {
+            return resolveMarkerSetName(available, input.substring("name:".length()), true);
+        }
+        if (input.startsWith("id:")) {
+            String id = input.substring("id:".length());
+            if (!managed.contains(id)) {
+                throw new IllegalArgumentException("BlueMap marker set " + id + " is not linked.");
+            }
+            return available.stream().filter(set -> set.id().equals(id)).findFirst()
+                    .orElse(new BlueMapAdapter.MarkerSetRef(id, id));
+        }
+        List<BlueMapAdapter.MarkerSetRef> matches = available.stream()
+                .filter(set -> set.label().equalsIgnoreCase(input)).toList();
+        if (!matches.isEmpty()) return requireUniqueMarkerSetName(matches, input);
+        if (managed.contains(input)) {
+            return available.stream().filter(set -> set.id().equals(input)).findFirst()
+                    .orElse(new BlueMapAdapter.MarkerSetRef(input, input));
+        }
+        throw new IllegalArgumentException(
+                "No linked marker set is named '" + input + "'. Use TAB or id:<stored ID>.");
+    }
+
+    private static BlueMapAdapter.MarkerSetRef requireUniqueMarkerSetName(
+            List<BlueMapAdapter.MarkerSetRef> matches, String name) {
+        Set<String> ids = new LinkedHashSet<>(matches.stream().map(BlueMapAdapter.MarkerSetRef::id).toList());
+        if (ids.size() > 1) throw new IllegalArgumentException(
+                "Several linked marker sets are named '" + name + "'; use id:<internal ID> instead.");
+        return matches.getFirst();
+    }
+
     private static BlueMapAdapter.MarkerSetRef resolveMarkerSetName(List<BlueMapAdapter.MarkerSetRef> sets,
             String name, boolean linkedOnly) {
         List<BlueMapAdapter.MarkerSetRef> matches = sets.stream()
@@ -325,6 +409,25 @@ public final class BridgeCommands {
             JourneyMapAdapter journeyMap, SuggestionsBuilder builder) {
         try {
             return suggest(linkedGroupArguments(configManager.configured(), availableGroups(journeyMap)), builder);
+        } catch (ConfigException e) {
+            return builder.buildFuture();
+        }
+    }
+
+    private static CompletableFuture<Suggestions> suggestManagedMarkerSets(ConfigManager configManager,
+            BlueMapAdapter blueMap, SuggestionsBuilder builder) {
+        try {
+            BridgeConfig config = configManager.configured();
+            return suggest(managedMarkerSetArguments(config, availableMarkerSets(blueMap)), builder);
+        } catch (ConfigException e) {
+            return builder.buildFuture();
+        }
+    }
+
+    private static CompletableFuture<Suggestions> suggestIcons(
+            ConfigManager configManager, SuggestionsBuilder builder) {
+        try {
+            return suggest(configManager.iconNames(), builder);
         } catch (ConfigException e) {
             return builder.buildFuture();
         }
@@ -391,6 +494,14 @@ public final class BridgeCommands {
                 .map(set -> markerSetNameArgument(set.label())).orElse("id:" + id)).toList();
     }
 
+    static List<String> managedMarkerSetArguments(BridgeConfig config,
+            List<BlueMapAdapter.MarkerSetRef> sets) {
+        return config.markerSetIds().stream()
+                .map(id -> sets.stream().filter(set -> set.id().equals(id)).findFirst()
+                        .map(set -> markerSetNameArgument(set.label())).orElse("id:" + id))
+                .toList();
+    }
+
     private static List<JourneyMapAdapter.GroupRef> availableGroups(JourneyMapAdapter journeyMap) {
         try {
             return journeyMap.groups();
@@ -408,7 +519,7 @@ public final class BridgeCommands {
     }
 
     static String quoteArgument(String value) {
-        if (value.matches("[A-Za-z0-9_.:+-]+")) return value;
+        if (value.matches("[A-Za-z0-9_.+-]+")) return value;
         return "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\"";
     }
 
@@ -445,17 +556,18 @@ public final class BridgeCommands {
         } catch (IOException ignored) {
             markerSets = List.of();
         }
-        final List<BridgeConfig.Mapping> mappings;
+        final BridgeConfig configured;
         try {
-            mappings = configManager.configured().mappings();
+            configured = configManager.configured();
         } catch (ConfigException e) {
-            context.getSource().sendFailure(Component.literal("Jm2Bm: config.yaml is invalid: " + e.getMessage()));
+            context.getSource().sendFailure(error("config.yaml is invalid: " + e.getMessage()));
             return 0;
         }
-        context.getSource().sendSuccess(() -> Component.literal(
-                "Jm2Bm links (" + mappings.size() + "):"), false);
+        List<BridgeConfig.Mapping> mappings = configured.mappings();
+        sendHeader(context.getSource(), "Links");
+        sendMetric(context.getSource(), "Configured", Integer.toString(mappings.size()), ChatFormatting.AQUA);
         if (mappings.isEmpty()) {
-            context.getSource().sendSuccess(() -> Component.literal("  No groups are linked."), false);
+            sendDetail(context.getSource(), "No groups are linked. Use /jm2bm link to add one.");
             return 1;
         }
         List<JourneyMapAdapter.GroupRef> availableGroups = groups;
@@ -469,7 +581,15 @@ public final class BridgeCommands {
                     .filter(set -> set.id().equals(mapping.blueMapMarkerSet()))
                     .map(BlueMapAdapter.MarkerSetRef::label).findFirst()
                     .orElse(mapping.blueMapMarkerSet());
-            context.getSource().sendSuccess(() -> Component.literal("  " + groupName + " -> " + setName), false);
+            String icon = mapping.icon() == null ? configured.defaultIcon() : mapping.icon();
+            Component line = Component.literal("  • ").withStyle(ChatFormatting.DARK_GRAY)
+                    .append(Component.literal(groupName).withStyle(ChatFormatting.WHITE))
+                    .append(Component.literal("  →  ").withStyle(ChatFormatting.DARK_GRAY))
+                    .append(Component.literal(setName).withStyle(ChatFormatting.AQUA));
+            Component iconLine = Component.literal("      icon: ").withStyle(ChatFormatting.DARK_GRAY)
+                    .append(Component.literal(icon).withStyle(ChatFormatting.GRAY));
+            context.getSource().sendSuccess(() -> line, false);
+            context.getSource().sendSuccess(() -> iconLine, false);
         }
         return mappings.size();
     }
@@ -477,32 +597,138 @@ public final class BridgeCommands {
     private static int showStatus(CommandContext<CommandSourceStack> context, ConfigManager configManager,
                                   SyncCoordinator coordinator) {
         SyncStatus status = coordinator.status();
-        context.getSource().sendSuccess(() -> Component.literal("Jm2Bm"), false);
-        context.getSource().sendSuccess(() -> Component.literal(
-                "JourneyMap: " + (se.jesper.jm2bm.Jm2BmMod.journeyMapConnected()
-                        ? "Connected" : "Disconnected")), false);
-        context.getSource().sendSuccess(() -> Component.literal(
-                "BlueMap: " + (se.jesper.jm2bm.Jm2BmMod.blueMapConnected()
-                        ? "Connected" : "Disconnected")), false);
-        context.getSource().sendSuccess(() -> Component.literal(
-                "Mappings: " + configManager.active().mappings().size()
-                        + ", managed sets: " + status.managedSets()
-                        + ", maps: " + status.managedMaps()), false);
+        sendHeader(context.getSource(), "Status");
+        sendSection(context.getSource(), "Connections");
+        sendConnection(context.getSource(), "JourneyMap", se.jesper.jm2bm.Jm2BmMod.journeyMapConnected());
+        sendConnection(context.getSource(), "BlueMap", se.jesper.jm2bm.Jm2BmMod.blueMapConnected());
+
+        sendSection(context.getSource(), "Configuration");
+        sendMetric(context.getSource(), "Mappings", Integer.toString(configManager.active().mappings().size()),
+                ChatFormatting.AQUA);
+        sendMetric(context.getSource(), "Managed sets", Integer.toString(status.managedSets()),
+                ChatFormatting.AQUA);
+        sendMetric(context.getSource(), "Maps", Integer.toString(status.managedMaps()), ChatFormatting.AQUA);
+
+        sendSection(context.getSource(), "Destinations (" + status.markerCounts().size() + ")");
+        if (status.markerCounts().isEmpty()) sendDetail(context.getSource(), "No destinations synchronized yet.");
         status.markerCounts().forEach((destination, count) ->
-                context.getSource().sendSuccess(() -> Component.literal(
-                        "  " + destination + ": " + count + " markers"), false));
-        if (!status.missingMarkerSets().isEmpty()) {
-            context.getSource().sendSuccess(() -> Component.literal(
-                    "Missing marker sets: " + String.join(", ", status.missingMarkerSets())), false);
+                context.getSource().sendSuccess(() -> destinationLine(destination, count), false));
+
+        int warningCount = status.missingMarkerSets().size() + status.missingGroups().size();
+        if (warningCount > 0) {
+            sendSection(context.getSource(), "Warnings (" + warningCount + ")", ChatFormatting.YELLOW);
+            status.missingMarkerSets().forEach(markerSet ->
+                    sendWarning(context.getSource(), "Marker set unavailable: " + markerSet));
+            status.missingGroups().forEach(group ->
+                    sendWarning(context.getSource(), "JourneyMap group unavailable: " + group));
         }
-        if (!status.missingGroups().isEmpty()) {
-            context.getSource().sendSuccess(() -> Component.literal(
-                    "Missing JourneyMap groups: " + status.missingGroups()), false);
-        }
+
+        sendSection(context.getSource(), "Last synchronization");
         String when = status.completedAt() == null ? "never" : TIME.format(status.completedAt());
-        context.getSource().sendSuccess(() -> Component.literal(
-                "Last sync: " + (status.success() ? "OK" : "ERROR") + " at " + when
-                        + " — " + status.message()), false);
+        ChatFormatting stateColor = status.completedAt() == null ? ChatFormatting.GRAY
+                : status.success() ? ChatFormatting.GREEN : ChatFormatting.RED;
+        String state = status.completedAt() == null ? "NOT RUN" : status.success() ? "OK" : "ERROR";
+        Component lastSync = Component.literal("  " + state).withStyle(stateColor, ChatFormatting.BOLD)
+                .append(Component.literal("  ·  " + when).withStyle(ChatFormatting.DARK_GRAY));
+        context.getSource().sendSuccess(() -> lastSync, false);
+        if (shouldShowStatusMessage(status, warningCount)) sendDetail(context.getSource(), status.message());
         return 1;
+    }
+
+    private static int showHelp(CommandContext<CommandSourceStack> context) {
+        sendHeader(context.getSource(), "Commands");
+        sendDetail(context.getSource(), "JourneyMap → BlueMap marker synchronization");
+        sendSection(context.getSource(), "Inspect");
+        sendCommand(context.getSource(), "/jm2bm status", "Connection and synchronization health");
+        sendCommand(context.getSource(), "/jm2bm list", "Configured group-to-set links");
+        sendSection(context.getSource(), "Configure");
+        sendCommand(context.getSource(), "/jm2bm link ", "Link a JourneyMap group to a marker set");
+        sendCommand(context.getSource(), "/jm2bm unlink ", "Remove an existing link");
+        sendCommand(context.getSource(), "/jm2bm icon ", "Set the icon for a linked marker set");
+        sendCommand(context.getSource(), "/jm2bm reload", "Reload config.yaml and synchronize");
+        sendDetail(context.getSource(), "Click a command to put it in chat. TAB completes names.");
+        return 1;
+    }
+
+    private static boolean shouldShowStatusMessage(SyncStatus status, int warningCount) {
+        if (status.message() == null || status.message().isBlank()) return false;
+        return warningCount == 0 || !status.message().startsWith("Completed with missing ");
+    }
+
+    private static MutableComponent prefix() {
+        return Component.empty().append(Component.literal("[Jm2Bm] ")
+                .withStyle(ChatFormatting.DARK_AQUA, ChatFormatting.BOLD));
+    }
+
+    private static Component error(String message) {
+        return prefix().append(Component.literal("Error: ").withStyle(ChatFormatting.RED,
+                ChatFormatting.BOLD)).append(Component.literal(message).withStyle(ChatFormatting.RED));
+    }
+
+    private static void sendSuccess(CommandSourceStack source, String message) {
+        source.sendSuccess(() -> prefix().append(Component.literal("✓ ").withStyle(ChatFormatting.GREEN))
+                .append(Component.literal(message).withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD)), false);
+    }
+
+    private static void sendNotice(CommandSourceStack source, String message, ChatFormatting color) {
+        source.sendSuccess(() -> prefix().append(Component.literal(message).withStyle(color)), false);
+    }
+
+    private static void sendHeader(CommandSourceStack source, String title) {
+        Component header = Component.literal("━━ ").withStyle(ChatFormatting.DARK_GRAY)
+                .append(Component.literal("Jm2Bm").withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD))
+                .append(Component.literal(" · " + title + " ").withStyle(ChatFormatting.WHITE,
+                        ChatFormatting.BOLD))
+                .append(Component.literal("━━").withStyle(ChatFormatting.DARK_GRAY));
+        source.sendSuccess(() -> header, false);
+    }
+
+    private static void sendSection(CommandSourceStack source, String title) {
+        sendSection(source, title, ChatFormatting.GOLD);
+    }
+
+    private static void sendSection(CommandSourceStack source, String title, ChatFormatting color) {
+        source.sendSuccess(() -> Component.literal("\n" + title).withStyle(color, ChatFormatting.BOLD), false);
+    }
+
+    private static void sendDetail(CommandSourceStack source, String text) {
+        source.sendSuccess(() -> Component.literal("  " + text).withStyle(ChatFormatting.GRAY), false);
+    }
+
+    private static void sendMetric(CommandSourceStack source, String label, String value,
+            ChatFormatting valueColor) {
+        Component line = Component.literal("  " + label + ": ").withStyle(ChatFormatting.GRAY)
+                .append(Component.literal(value).withStyle(valueColor, ChatFormatting.BOLD));
+        source.sendSuccess(() -> line, false);
+    }
+
+    private static void sendConnection(CommandSourceStack source, String label, boolean connected) {
+        Component line = Component.literal("  " + label + ": ").withStyle(ChatFormatting.GRAY)
+                .append(Component.literal(connected ? "● Connected" : "● Disconnected")
+                        .withStyle(connected ? ChatFormatting.GREEN : ChatFormatting.RED));
+        source.sendSuccess(() -> line, false);
+    }
+
+    private static Component destinationLine(String destination, int count) {
+        return Component.literal("  • ").withStyle(ChatFormatting.DARK_GRAY)
+                .append(Component.literal(destination).withStyle(ChatFormatting.WHITE))
+                .append(Component.literal("  ·  ").withStyle(ChatFormatting.DARK_GRAY))
+                .append(Component.literal(count + (count == 1 ? " marker" : " markers"))
+                        .withStyle(ChatFormatting.AQUA));
+    }
+
+    private static void sendWarning(CommandSourceStack source, String warning) {
+        source.sendSuccess(() -> Component.empty()
+                .append(Component.literal("  ! ").withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD))
+                .append(Component.literal(warning).withStyle(ChatFormatting.YELLOW)), false);
+    }
+
+    private static void sendCommand(CommandSourceStack source, String command, String description) {
+        Component line = Component.empty()
+                .append(Component.literal("  " + command).withStyle(style -> style
+                        .withColor(ChatFormatting.AQUA).withUnderlined(true)
+                        .withClickEvent(new ClickEvent.SuggestCommand(command))))
+                .append(Component.literal(" — " + description).withStyle(ChatFormatting.GRAY));
+        source.sendSuccess(() -> line, false);
     }
 }

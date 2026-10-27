@@ -40,8 +40,9 @@ mappings:
 ```
 
 Put PNG or SVG icons below `config/jm2bm/icons/`. Icon paths cannot be absolute or leave that
-directory. Marker set IDs are case-sensitive and must already exist on each applicable BlueMap
-map. Jm2Bm never creates marker sets or changes their labels and display settings.
+directory. Marker set IDs are case-sensitive and must already exist on at least one BlueMap map.
+A map is applicable to a marker set when that set ID exists on the map; the set need not exist on
+every dimension's map. Jm2Bm never creates marker sets or changes their labels and display settings.
 
 Two or more JourneyMap groups may target the same marker set. Their waypoints are reconciled as
 one union, while each group retains its configured icon. Each waypoint's permanent JourneyMap
@@ -53,22 +54,27 @@ GUID is used as the BlueMap marker ID.
 
 ## Commands
 
+- `/jm2bm` or `/jm2bm help` shows the color-coded command guide; its command names are clickable
+  and TAB completes available groups, marker sets, and icons.
 - `/jm2bm link <journeymap-global-group> <bluemap-marker-set>` links a group and set by their
   friendly display names. TAB completion lists all live JourneyMap global groups and BlueMap sets.
   If the selected set already contains markers, the command asks whether to clear it and continue
   or cancel. This safeguard applies to the in-game command, not mappings entered in `config.yaml`.
 - `/jm2bm unlink <journeymap-global-group> <bluemap-marker-set>` removes a link. TAB completion
   only lists linked groups, then only sets linked to the selected group.
+- `/jm2bm icon <bluemap-marker-set> <icon-file>` assigns an existing PNG/SVG from
+  `config/jm2bm/icons/` to every active link targeting that set. Both arguments support TAB
+  completion, and the change is saved and reconciled immediately.
 - `/jm2bm list` lists every active link using friendly names, with stored identifiers as fallback.
 - `/jm2bm reload` validates and activates `config.yaml`, republishes changed icons, reconciles all
   destinations, and cleans a marker set once when its final mapping was removed.
 - `/jm2bm status` reports API connectivity, mappings, destination counts, missing groups/sets,
   and the latest sync result.
 
-All commands require the vanilla gamemaster permission (operator level 2 equivalent). `link` and
-`unlink` save immediately; friendly names are resolved live, while `config.yaml` stores the stable
-JourneyMap UUID and BlueMap marker-set ID. Each mutation first validates and uses the current YAML
-file as its source of truth. Names containing spaces are inserted as quoted arguments.
+All commands require the vanilla gamemaster permission (operator level 2 equivalent). `link`,
+`unlink`, and `icon` save immediately; friendly names are resolved live, while `config.yaml` stores
+the stable JourneyMap UUID and BlueMap marker-set ID. Each mutation first validates and uses the
+current YAML file as its source of truth. Names containing spaces are inserted as quoted arguments.
 An invalid reload leaves the last valid in-memory configuration active and does not trigger a
 reconciliation.
 

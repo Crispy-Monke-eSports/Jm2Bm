@@ -26,8 +26,17 @@ class BlueMapAdapterTest {
     @Test
     void cleanupOnlyCompletesWhenEveryDestinationWasAvailableAndSuccessful() {
         assertTrue(BlueMapAdapter.cleanupComplete(List.of(), Set.of()));
-        assertFalse(BlueMapAdapter.cleanupComplete(List.of(), Set.of("world/removed-set")));
+        assertFalse(BlueMapAdapter.cleanupComplete(List.of(), Set.of("removed-set")));
         assertFalse(BlueMapAdapter.cleanupComplete(List.of("write failed"), Set.of()));
+    }
+
+    @Test
+    void markerSetIsMissingOnlyWhenItExistsOnNoMap() {
+        Set<String> missing = BlueMapAdapter.missingMarkerSets(
+                Set.of("buildings", "farms", "cities", "removed"),
+                List.of(Set.of("buildings", "farms"), Set.of("farms"), Set.of("cities")));
+
+        assertEquals(Set.of("removed"), missing);
     }
 
     @Test

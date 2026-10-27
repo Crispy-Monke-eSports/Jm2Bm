@@ -31,7 +31,8 @@
 - Egna ikonfiler (`.png` och `.svg`), valda per mappning, oberoende av JourneyMaps egna ikoner.
 - Flera BlueMap-kartor för en och samma Minecraft-dimension.
 - Full avstämning efter omstart/reload och inkrementella avstämningar däremellan.
-- Administratörskommandona `/jm2bm link`, `/jm2bm unlink`, `/jm2bm list`, `/jm2bm reload` och `/jm2bm status`.
+- Administratörskommandona `/jm2bm help`, `/jm2bm link`, `/jm2bm unlink`, `/jm2bm icon`,
+  `/jm2bm list`, `/jm2bm reload` och `/jm2bm status`.
 - Tydlig loggning och skydd mot destruktiv synk vid fel.
 
 ### Ingår inte i v1
@@ -192,15 +193,15 @@ reconcileAll():
      och globala waypoints som behövs för alla mappings.
   4. Om snapshoten misslyckas eller är ofullständig: AVBRYT utan radering.
   5. Gruppera mappings efter destinationens Marker Set-ID.
-  6. För varje BlueMap-karta och dess konfigurerade Marker Sets:
+  6. För varje BlueMap-karta och de mappade Marker Set-ID:n som faktiskt finns på kartan:
       a. Samla alla relevanta waypoints från ALLA JourneyMap-grupper
          som pekar på detta set och gäller kartans dimension.
       b. Bygg desiredMarkers: Map<WaypointGUID, DesiredPOIMarker>.
-      c. Om setet saknas: logga fel, skapa det INTE, fortsätt med övriga.
-      d. Skapa saknade marker-ID:n.
-      e. Uppdatera existerande markers med ändrat innehåll.
-      f. Radera ALLA marker-ID:n i setet som saknas i desiredMarkers.
-  7. Spara senaste lyckade synkstatus och räknare för /jm2bm status.
+      c. Skapa saknade marker-ID:n.
+      d. Uppdatera existerande markers med ändrat innehåll.
+      e. Radera ALLA marker-ID:n i setet som saknas i desiredMarkers.
+  7. Om ett mappat Marker Set-ID inte finns på någon karta: logga fel och skapa det INTE.
+  8. Spara senaste lyckade synkstatus och räknare för /jm2bm status.
 ```
 
 **Definition av lyckad synk:** en korrekt, komplett JourneyMap-snapshot och genomförd avstämning för respektive BlueMap-karta/set. Om snapshot eller validering är osäker får ingen rensning ske för den berörda destinationen.
@@ -241,6 +242,11 @@ reconcileAll():
 
 ## 10. Kommandon och åtkomst
 
+### `/jm2bm` och `/jm2bm help`
+
+- Visar en färgkodad, sektionsindelad kommandoöversikt.
+- Kommandona är klickbara och fylls i i chatten; TAB-komplettering används för argument.
+
 ### `/jm2bm link <journeymap-global-group> <bluemap-marker-set>`
 
 - TAB föreslår friendly names för alla live globala JourneyMap-grupper och BlueMap Marker Sets.
@@ -255,6 +261,12 @@ reconcileAll():
 - Första TAB-listan visar endast JourneyMap-grupper med aktiva länkar.
 - Andra TAB-listan visar endast BlueMap-set som är länkade till den valda gruppen.
 - Borttagningen sparas atomiskt direkt i `config.yaml` och en full avstämning köas.
+
+### `/jm2bm icon <bluemap-marker-set> <icon-file>`
+
+- TAB föreslår endast länkade BlueMap-set och befintliga PNG/SVG-filer under `config/jm2bm/icons/`.
+- Ikonen sätts på samtliga gruppmappningar som pekar på marker-setet.
+- Filen måste finnas och sökvägen valideras innan ändringen sparas atomiskt och en avstämning köas.
 
 ### `/jm2bm list`
 

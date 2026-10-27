@@ -13,6 +13,7 @@ import java.io.Writer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
@@ -115,6 +116,43 @@ public final class ConfigManager {
                 !candidate.equals(previouslyActive));
     }
 
+    public synchronized MutationResult setIconForMarkerSet(String markerSet, String icon) throws ConfigException {
+        markerSet = requireText(markerSet, "blueMapMarkerSet");
+        icon = requireText(icon, "icon");
+        Path iconPath = resolveIcon(icon);
+        if (!Files.isRegularFile(iconPath, LinkOption.NOFOLLOW_LINKS)) {
+            throw new ConfigException("Icon file does not exist: " + icon);
+        }
+
+        BridgeConfig previouslyActive = active();
+        BridgeConfig source = readAndValidate();
+        String selectedSet = markerSet;
+        String selectedIcon = icon;
+        boolean linked = source.mappings().stream()
+                .anyMatch(mapping -> mapping.blueMapMarkerSet().equals(selectedSet));
+        if (!linked) {
+            active = source;
+            return new MutationResult(source, removedSets(previouslyActive, source),
+                    false, !source.equals(previouslyActive));
+        }
+
+        List<BridgeConfig.Mapping> mappings = source.mappings().stream()
+                .map(mapping -> mapping.blueMapMarkerSet().equals(selectedSet)
+                        ? new BridgeConfig.Mapping(mapping.journeyMapGroupUuid(), selectedSet, selectedIcon)
+                        : mapping)
+                .toList();
+        BridgeConfig candidate = new BridgeConfig(source.syncOnStartup(), source.defaultIcon(), mappings);
+        if (candidate.equals(source)) {
+            active = source;
+            return new MutationResult(source, removedSets(previouslyActive, source),
+                    false, !source.equals(previouslyActive));
+        }
+        write(candidate);
+        active = candidate;
+        return new MutationResult(candidate, removedSets(previouslyActive, candidate), true,
+                !candidate.equals(previouslyActive));
+    }
+
     public BridgeConfig active() {
         BridgeConfig config = active;
         if (config == null) throw new IllegalStateException("Configuration has not been initialized");
@@ -127,6 +165,21 @@ public final class ConfigManager {
 
     public Path iconDirectory() {
         return iconDirectory;
+    }
+
+    public List<String> iconNames() throws ConfigException {
+        try (var paths = Files.walk(iconDirectory)) {
+            return paths.filter(path -> Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS))
+                    .map(iconDirectory::relativize)
+                    .map(Path::toString)
+                    .map(name -> name.replace('\\', '/'))
+                    .filter(name -> name.toLowerCase(Locale.ROOT).endsWith(".png")
+                            || name.toLowerCase(Locale.ROOT).endsWith(".svg"))
+                    .sorted(String.CASE_INSENSITIVE_ORDER)
+                    .toList();
+        } catch (IOException e) {
+            throw new ConfigException("Could not list icon files: " + e.getMessage(), e);
+        }
     }
 
     public Path resolveIcon(String icon) throws ConfigException {
