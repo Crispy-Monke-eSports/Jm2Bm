@@ -57,7 +57,7 @@ jobs:
         shell: bash
         run: |
           target="$(sed -n 's/^minecraft_version=//p' gradle.properties)"
-          if [[ ! "$target" =~ ^[0-9]+\\.[0-9]+(\\.[0-9]+)?$ ]]; then
+          if [[ ! "$target" =~ ^[0-9]+[.][0-9]+([.][0-9]+)?$ ]]; then
             echo "Release requires a stable minecraft_version; found: $target" >&2
             exit 1
           fi
