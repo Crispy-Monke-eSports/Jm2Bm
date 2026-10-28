@@ -113,16 +113,16 @@ tasks.register("verifyUniversalJar") {
             def neoForgeMetadata = zip.getInputStream(zip.getEntry("META-INF/neoforge.mods.toml"))
                     .getText("UTF-8")
             def neoForgeDependencyRange = { String modId ->
-                def section = neoForgeMetadata.split(/\\[\\[dependencies\\.jm2bm\\]\\]/)
-                        .find { it.contains("modId=\"\${modId}\"") }
+                def section = neoForgeMetadata.split(java.util.regex.Pattern.quote("[[dependencies.jm2bm]]"))
+                        .find { it.contains("modId=\"${modId}\"") }
                 if (section == null) {
-                    throw new GradleException("NeoForge manifest is missing dependency \${modId}")
+                    throw new GradleException("NeoForge manifest is missing dependency ${modId}")
                 }
-                def matcher = section =~ /(?m)^versionRange="([^"]+)"\\s*$/
-                if (!matcher.find()) {
-                    throw new GradleException("NeoForge dependency \${modId} has no version range")
+                def versionLine = section.readLines().find { it.startsWith("versionRange=") }
+                if (versionLine == null || !versionLine.endsWith('"')) {
+                    throw new GradleException("NeoForge dependency ${modId} has no version range")
                 }
-                matcher.group(1)
+                versionLine.substring('versionRange="'.length(), versionLine.length() - 1)
             }
             if (neoForgeDependencyRange("minecraft") != "[${expectedMinecraftVersion}]") {
                 throw new GradleException("NeoForge Minecraft requirement does not match minecraft_version")
