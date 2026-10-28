@@ -21,14 +21,14 @@ side="SERVER"
 [[dependencies.jm2bm]]
 modId="minecraft"
 type="required"
-versionRange="[26.3]"
+versionRange="[${minecraft_version}]"
 ordering="NONE"
 side="SERVER"
 
 [[dependencies.jm2bm]]
 modId="journeymap"
 type="required"
-versionRange="[26.3-6.0.10,)"
+versionRange="[${journeymap_runtime_version},)"
 ordering="AFTER"
 side="SERVER"
 

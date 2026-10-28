@@ -12,6 +12,9 @@ base {
 
 def archiveBaseName = project.archives_base_name
 def snakeYamlJarName = "snakeyaml-${project.snakeyaml_version}.jar"
+def expectedMinecraftVersion = project.minecraft_version.toString()
+def expectedFabricMinecraftRequirement = "~${expectedMinecraftVersion}"
+def expectedJourneyMapRuntimeVersion = project.journeymap_runtime_version.toString()
 def commonBuildDirectory = project(":common").layout.buildDirectory
 def fabricBuildDirectory = project(":fabric").layout.buildDirectory
 def neoForgeBuildDirectory = project(":neoforge").layout.buildDirectory
@@ -78,6 +81,8 @@ def universalJarFile = tasks.named("jar", Jar).flatMap { it.archiveFile }
 tasks.register("verifyUniversalJar") {
     dependsOn(tasks.named("jar"))
     inputs.file(universalJarFile)
+    inputs.property("minecraftVersion", expectedMinecraftVersion)
+    inputs.property("journeyMapRuntimeVersion", expectedJourneyMapRuntimeVersion)
     doLast {
         def requiredEntries = [
                 "fabric.mod.json",
@@ -94,6 +99,36 @@ tasks.register("verifyUniversalJar") {
                 if (zip.getEntry(entry) == null) {
                     throw new GradleException("Universal JAR is missing ${entry}")
                 }
+            }
+            def fabricMetadata = new groovy.json.JsonSlurper().parseText(
+                    zip.getInputStream(zip.getEntry("fabric.mod.json")).getText("UTF-8")
+            )
+            if (fabricMetadata.depends.minecraft != expectedFabricMinecraftRequirement) {
+                throw new GradleException("Fabric Minecraft requirement does not match minecraft_version")
+            }
+            if (fabricMetadata.depends.journeymap != ">=${expectedJourneyMapRuntimeVersion}") {
+                throw new GradleException("Fabric JourneyMap requirement does not match journeymap_runtime_version")
+            }
+
+            def neoForgeMetadata = zip.getInputStream(zip.getEntry("META-INF/neoforge.mods.toml"))
+                    .getText("UTF-8")
+            def neoForgeDependencyRange = { String modId ->
+                def section = neoForgeMetadata.split(/\\[\\[dependencies\\.jm2bm\\]\\]/)
+                        .find { it.contains("modId=\"\${modId}\"") }
+                if (section == null) {
+                    throw new GradleException("NeoForge manifest is missing dependency \${modId}")
+                }
+                def matcher = section =~ /(?m)^versionRange="([^"]+)"\\s*$/
+                if (!matcher.find()) {
+                    throw new GradleException("NeoForge dependency \${modId} has no version range")
+                }
+                matcher.group(1)
+            }
+            if (neoForgeDependencyRange("minecraft") != "[${expectedMinecraftVersion}]") {
+                throw new GradleException("NeoForge Minecraft requirement does not match minecraft_version")
+            }
+            if (neoForgeDependencyRange("journeymap") != "[${expectedJourneyMapRuntimeVersion},)") {
+                throw new GradleException("NeoForge JourneyMap requirement does not match journeymap_runtime_version")
             }
             ["flow-math-1.0.3.jar", snakeYamlJarName].each { nestedName ->
                 def nestedEntry = zip.getEntry("META-INF/jars/${nestedName}")

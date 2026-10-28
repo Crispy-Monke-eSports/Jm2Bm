@@ -8,6 +8,11 @@ Jm2Bm is a dedicated-server mod for Minecraft Java Edition 26.3. The same univer
 both Fabric and NeoForge. It keeps selected, server-managed JourneyMap waypoint groups synchronized
 into existing BlueMap marker sets. JourneyMap is always the source of truth.
 
+> **Preparing for Minecraft 26.4:** The universal build remains on the verified 26.3
+> dependencies until both loaders and the required JourneyMap API/runtime are available
+> for 26.4. See [the 26.4 migration checklist](docs/minecraft-26.4.md). Do not install
+> the current 26.3 JAR on a 26.4 server.
+
 ## Requirements
 
 - Java 25
@@ -112,6 +117,6 @@ Maintainers publish a release by pushing a semantic-version tag such as `v1.0.1`
 workflow derives the mod version from the tag and requires every test and verification check to
 pass before publishing to either destination. It then uploads the binary JAR, sources JAR, and
 SHA-256 checksums to GitHub Releases, followed by the universal binary JAR to CurseForge as a
-Fabric/NeoForge file for Minecraft 26.3. Configure the repository secret `CURSEFORGE_TOKEN` with a
+Fabric/NeoForge file for the stable Minecraft version in `gradle.properties`. Configure the repository secret `CURSEFORGE_TOKEN` with a
 CurseForge author API token and the repository variable `CURSEFORGE_PROJECT_ID` with the project's
 numeric ID before publishing a release.

@@ -43,7 +43,11 @@ dependencies {
     include "org.yaml:snakeyaml:${project.snakeyaml_version}"
 }
 
-def resourceProperties = ["version": project.version]
+def resourceProperties = [
+        "version": project.version,
+        "minecraft_version": project.minecraft_version,
+        "journeymap_runtime_version": project.journeymap_runtime_version
+]
 
 processResources {
     inputs.properties resourceProperties

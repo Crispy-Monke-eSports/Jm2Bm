@@ -54,7 +54,9 @@ dependencies {
 
 def resourceProperties = [
         "version": project.version,
-        "neoforge_version": project.neoforge_version
+        "neoforge_version": project.neoforge_version,
+        "minecraft_version": project.minecraft_version,
+        "journeymap_runtime_version": project.journeymap_runtime_version
 ]
 
 processResources {
