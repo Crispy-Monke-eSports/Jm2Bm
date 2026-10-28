@@ -52,6 +52,17 @@ jobs:
           fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
+      - name: Validate Minecraft release target
+        id: minecraft
+        shell: bash
+        run: |
+          target="$(sed -n 's/^minecraft_version=//p' gradle.properties)"
+          if [[ ! "$target" =~ ^[0-9]+[.][0-9]+([.][0-9]+)?$ ]]; then
+            echo "Release requires a stable minecraft_version; found: $target" >&2
+            exit 1
+          fi
+          echo "version=$target" >> "$GITHUB_OUTPUT"
+
       - name: Run all tests and verification checks
         env:
           MOD_VERSION: ${{ steps.version.outputs.version }}
@@ -128,7 +139,7 @@ jobs:
             fabric
             neoforge
           environment: server
-          game-versions: "26.3"
+          game-versions: ${{ steps.minecraft.outputs.version }}
           game-version-filter: none
           dependencies: |
             journeymap(required)
